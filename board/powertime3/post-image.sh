@@ -6,18 +6,23 @@ MKIMAGE=${HOST_DIR}/bin/mkimage
 DTC=${HOST_DIR}/bin/dtc
 MKBOOTIMAGE=${BUILD_DIR}/../../utils/mkbootimage
 
-cp ${BOARD_DIR}/pre-built/linux/implementation/download.bit ${BINARIES_DIR}/fpga.bit
-cp ${BOARD_DIR}/pre-built/linux/images/zynq_fsbl.elf ${BINARIES_DIR}/fsbl.elf
-cp ${BOARD_DIR}/pre-built/linux/images/u-boot.elf ${BINARIES_DIR}/u-boot.elf
-cp ${BOARD_DIR}/pre-built/linux/images/system.dtb ${BINARIES_DIR}/devicetree.dtb 
+cp ${BOARD_DIR}/pre-built/fpga.bit ${BINARIES_DIR}/fpga.bit
+cp ${BOARD_DIR}/pre-built/fsbl.elf ${BINARIES_DIR}/fsbl.elf
+cp ${BINARIES_DIR}/u-boot ${BINARIES_DIR}/u-boot.elf
 
 echo "Creating boot.bin..."
 cp ${BOARD_DIR}/boot.bif ${BINARIES_DIR}
 (cd ${BINARIES_DIR}; ${MKBOOTIMAGE} boot.bif boot.bin)
 
-echo "Creating FIT-image..."
-cp ${BOARD_DIR}/image.its ${BINARIES_DIR}
-(cd ${BINARIES_DIR}; ${MKIMAGE} -f image.its image.ub)
+echo "Compiling the boot-script..."
+${MKIMAGE} -A arm -O linux -T script -C none \
+	 -d ${BOARD_DIR}/uboot/mmcboot-ramdisk \
+	 ${BINARIES_DIR}/uboot.scr
+
+#echo "Compiling the device-tree..."
+#${DTC} -I dts -O dtb -o ${BINARIES_DIR}/devicetree.dtb ${BOARD_DIR}/devicetree.dts
+cp ${BOARD_DIR}/pre-built/devicetree.dtb ${BINARIES_DIR}/devicetree.dtb
 
 echo "Creating the sd-card image..."
 support/scripts/genimage.sh -c ${BOARD_DIR}/genimage.cfg
+
