@@ -1,0 +1,5 @@
+config FPGA_CONTROL_MODULE
+	tristate "FPGA register driver access"
+	depends on HAS_IOMEM
+	help
+	  access fpga register in a protected way
