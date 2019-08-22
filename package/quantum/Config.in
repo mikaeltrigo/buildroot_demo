@@ -1,0 +1,5 @@
+config BR2_PACKAGE_QUANTUM
+	bool "quantum"
+	help
+	  Quantum software by SWT
+

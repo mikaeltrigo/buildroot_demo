@@ -1,0 +1,5 @@
+config BR2_PACKAGE_LUA_FPGACONTROL
+	bool "lua-fpgacontrol"
+	help
+	  fpga control module is used to access the fpga axi driver 
+

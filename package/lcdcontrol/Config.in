@@ -1,0 +1,5 @@
+config BR2_PACKAGE_LCDCONTROL
+	bool "lcdcontrol"
+	help
+	  LCD modules to acces external LCD Kentec320x240x16_ssd2119_SPI
+
