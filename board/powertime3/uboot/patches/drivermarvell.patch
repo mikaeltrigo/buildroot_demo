@@ -1,0 +1,31 @@
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index b7f300e..63c29c8 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -310,6 +310,8 @@ static int m88e1518_config(struct phy_device *phydev)
+ 	 */
+ 
+ 	/* EEE initialization */
++	printf("m88e1518_config\n");	
++	phy_write(phydev, MDIO_DEVAD_NONE, 0, 0x1140); //trigo added
+ 	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_88E1118_PHY_PAGE, 0x00ff);
+ 	phy_write(phydev, MDIO_DEVAD_NONE, 17, 0x214B);
+ 	phy_write(phydev, MDIO_DEVAD_NONE, 16, 0x2144);
+@@ -373,7 +375,8 @@ static int m88e1518_config(struct phy_device *phydev)
+ 
+ 	genphy_config_aneg(phydev);
+ 	genphy_restart_aneg(phydev);
+-
++	printf("m88e1518_config redo\n");	
++	phy_write(phydev, MDIO_DEVAD_NONE, 0, 0x1140); //trigo added
+ 	return 0;
+ }
+ 
+@@ -708,6 +711,7 @@ static struct phy_driver M88E1680_driver = {
+ 
+ int phy_marvell_init(void)
+ {
++	printf("phy_marvell_init\n");	
+ 	phy_register(&M88E1310_driver);
+ 	phy_register(&M88E1149S_driver);
+ 	phy_register(&M88E1145_driver);

@@ -1,0 +1,26 @@
+diff --git a/drivers/mmc/zynq_sdhci.c b/drivers/mmc/zynq_sdhci.c
+index ca5d009..6f3f6cb 100644
+--- a/drivers/mmc/zynq_sdhci.c
++++ b/drivers/mmc/zynq_sdhci.c
+@@ -21,6 +21,8 @@
+ #include "mmc_private.h"
+ 
+ DECLARE_GLOBAL_DATA_PTR;
++#define DEBUG 
++
+ 
+ #ifndef CONFIG_ZYNQ_SDHCI_MIN_FREQ
+ # define CONFIG_ZYNQ_SDHCI_MIN_FREQ	0
+@@ -189,8 +191,10 @@ static int arasan_sdhci_probe(struct udevice *dev)
+ 	if(!(priv->cd_gpio)){
+ 		if (gpio_get_number(priv->cd_gpio) >= 0) {
+ 			if (dm_gpio_is_valid(priv->cd_gpio)) {
+-				if(!dm_gpio_get_value(priv->cd_gpio))
+-					return -ENXIO;
++				//if(!dm_gpio_get_value(priv->cd_gpio))
++					//return -ENXIO;				
++				
++					
+ 			}
+ 		}
+         }

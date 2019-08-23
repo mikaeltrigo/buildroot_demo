@@ -1,0 +1,20 @@
+diff --git a/drivers/gpio/Kconfig b/drivers/gpio/Kconfig
+index b4e859e..33b2824 100644
+--- a/drivers/gpio/Kconfig
++++ b/drivers/gpio/Kconfig
+@@ -14,6 +14,15 @@ config DM_GPIO
+ 	  particular GPIOs that they provide. The uclass interface
+ 	  is defined in include/asm-generic/gpio.h.
+ 
++config XILINX_GPIO
++	bool "Enable  Xilinx GPIO"
++	help
++	  Enable driver model for GPIO access. The standard GPIO
++	  interface (gpio_get_value(), etc.) is then implemented by
++	  the GPIO uclass. Drivers provide methods to query the
++	  particular GPIOs that they provide. The uclass interface
++	  is defined in include/asm-generic/gpio.h.
++
+ config ALTERA_PIO
+ 	bool "Altera PIO driver"
+ 	depends on DM_GPIO
