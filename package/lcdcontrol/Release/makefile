@@ -30,7 +30,7 @@ testLCD.elf.size \
 
 
 # All Target
-all: testLCD.elf secondary-outputs
+all: clean testLCD.elf secondary-outputs
 
 # Tool invocations
 testLCD.elf: $(OBJS)  $(USER_OBJS)
@@ -42,7 +42,7 @@ testLCD.elf: $(OBJS)  $(USER_OBJS)
 
 testLCD.elf.size: testLCD.elf
 	@echo 'Invoking: ARM v7 Linux Print Size'
-	arm-linux-gnueabi-gcc testLCD.elf  |tee "testLCD.elf.size"
+	size testLCD.elf  |tee "testLCD.elf.size"
 	@echo 'Finished building: $@'
 	@echo ' '
 
