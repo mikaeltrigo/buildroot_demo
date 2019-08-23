@@ -1,0 +1,22 @@
+diff --git a/include/configs/enclustra_zx_common.h b/include/configs/enclustra_zx_common.h
+index e2c2f15..566049d 100644
+--- a/include/configs/enclustra_zx_common.h
++++ b/include/configs/enclustra_zx_common.h
+@@ -94,7 +94,7 @@
+ #endif
+ #define CONFIG_EXTRA_ENV_SETTINGS               \
+     "loadaddr=0x200000\0"                       \
+-    "ipaddr=192.168.1.113\0"                    \
++    "ipaddr=192.168.46.3\0"                      \
+     "serverip=192.168.1.103\0"                  \
+     "serverpath=/srv/nfs/rootfs\0"              \
+     "netmask=255.255.255.0\0"                   \
+@@ -119,7 +119,7 @@
+     "nand_kernel_size=0x500000\0"               \
+     "nand_devicetree_size=0x10000\0"            \
+                                                 \
+-    "def_args=console=ttyPS0,115200 rw earlyprintk\0"\
++    "def_args=console=ttyPS0,115200 rw earlyprintk uio_pdrv_genirq.of_id=generic-uio\0"\
+     "ramdisk_args=setenv bootargs ${def_args} root=/dev/ram\0"\
+     "mmc_args=setenv bootargs ${def_args} rootwait root=/dev/mmcblk${mmcdev}p2\0"\
+     "nand_args=setenv bootargs ${def_args} rootwait=1 ubi.mtd=3 rootfstype=ubifs root=ubi0:rootfs\0"\

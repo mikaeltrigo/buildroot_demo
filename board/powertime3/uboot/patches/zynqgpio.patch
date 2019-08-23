@@ -1,0 +1,163 @@
+diff --git a/drivers/gpio/xilinx_gpio.c b/drivers/gpio/xilinx_gpio.c
+index 949fd96..6d98971 100644
+--- a/drivers/gpio/xilinx_gpio.c
++++ b/drivers/gpio/xilinx_gpio.c
+@@ -81,7 +81,7 @@ static char *get_name(unsigned gpio)
+ }
+ 
+ /* Get output value */
+-static int gpio_get_output_value(unsigned gpio)
++static int xlint_gpio_get_output_value(unsigned gpio)
+ {
+ 	u32 val, gpio_priv;
+ 	struct xilinx_gpio_priv *priv = gpio_get_controller(gpio);
+@@ -98,7 +98,7 @@ static int gpio_get_output_value(unsigned gpio)
+ }
+ 
+ /* Get input value */
+-static int gpio_get_input_value(unsigned gpio)
++static int xlint_gpio_get_input_value(unsigned gpio)
+ {
+ 	u32 val, gpio_priv;
+ 	struct gpio_regs *regs;
+@@ -118,7 +118,7 @@ static int gpio_get_input_value(unsigned gpio)
+ }
+ 
+ /* Set gpio direction */
+-static int gpio_set_direction(unsigned gpio, enum gpio_direction direction)
++static int xlint_gpio_set_direction(unsigned gpio, enum gpio_direction direction)
+ {
+ 	u32 val, gpio_priv;
+ 	struct gpio_regs *regs;
+@@ -145,7 +145,7 @@ static int gpio_set_direction(unsigned gpio, enum gpio_direction direction)
+ }
+ 
+ /* Get gpio direction */
+-static int gpio_get_direction(unsigned gpio)
++static int xlint_gpio_get_direction(unsigned gpio)
+ {
+ 	u32 val, gpio_priv;
+ 	struct gpio_regs *regs;
+@@ -170,20 +170,20 @@ static int gpio_get_direction(unsigned gpio)
+  * for example gpio setup to output only can't get input value
+  * which is breaking gpio toggle command
+  */
+-int gpio_get_value(unsigned gpio)
++int xlint_gpio_get_value(unsigned gpio)
+ {
+ 	u32 val;
+ 
+-	if (gpio_get_direction(gpio) == GPIO_DIRECTION_OUT)
+-		val = gpio_get_output_value(gpio);
++	if (xlint_gpio_get_direction(gpio) == GPIO_DIRECTION_OUT)
++		val = xlint_gpio_get_output_value(gpio);
+ 	else
+-		val = gpio_get_input_value(gpio);
++		val = xlint_gpio_get_input_value(gpio);
+ 
+ 	return val;
+ }
+ 
+ /* Set output value */
+-static int gpio_set_output_value(unsigned gpio, int value)
++static int xlint_gpio_set_output_value(unsigned gpio, int value)
+ {
+ 	u32 val, gpio_priv;
+ 	struct gpio_regs *regs;
+@@ -209,36 +209,36 @@ static int gpio_set_output_value(unsigned gpio, int value)
+ 	return -1;
+ }
+ 
+-int gpio_set_value(unsigned gpio, int value)
++int xlint_gpio_set_value(unsigned gpio, int value)
+ {
+-	if (gpio_get_direction(gpio) == GPIO_DIRECTION_OUT)
+-		return gpio_set_output_value(gpio, value);
++	if (xlint_gpio_get_direction(gpio) == GPIO_DIRECTION_OUT)
++		return xlint_gpio_set_output_value(gpio, value);
+ 
+ 	return -1;
+ }
+ 
+ /* Set GPIO as input */
+-int gpio_direction_input(unsigned gpio)
++int xlint_gpio_direction_input(unsigned gpio)
+ {
+ 	debug("%s\n", __func__);
+-	return gpio_set_direction(gpio, GPIO_DIRECTION_IN);
++	return xlint_gpio_set_direction(gpio, GPIO_DIRECTION_IN);
+ }
+ 
+ /* Setup GPIO as output and set output value */
+-int gpio_direction_output(unsigned gpio, int value)
++int xl_gpio_direction_output(unsigned gpio, int value)
+ {
+-	int ret = gpio_set_direction(gpio, GPIO_DIRECTION_OUT);
++	int ret = xlint_gpio_set_direction(gpio, GPIO_DIRECTION_OUT);
+ 
+ 	debug("%s\n", __func__);
+ 
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	return gpio_set_output_value(gpio, value);
++	return xlint_gpio_set_output_value(gpio, value);
+ }
+ 
+ /* Show gpio status */
+-void gpio_info(void)
++void xl_gpio_info(void)
+ {
+ 	unsigned gpio;
+ 
+@@ -252,17 +252,17 @@ void gpio_info(void)
+ 
+ 		for (gpio = priv->gpio_min; gpio <= priv->gpio_max; gpio++) {
+ 			printf("GPIO_%d:\t%s is an ", gpio, get_name(gpio));
+-			if (gpio_get_direction(gpio) == GPIO_DIRECTION_OUT)
++			if (xlint_gpio_get_direction(gpio) == GPIO_DIRECTION_OUT)
+ 				printf("OUTPUT value = %d\n",
+-				       gpio_get_output_value(gpio));
++				       xlint_gpio_get_output_value(gpio));
+ 			else
+ 				printf("INPUT value = %d\n",
+-				       gpio_get_input_value(gpio));
++				       xlint_gpio_get_input_value(gpio));
+ 		}
+ 	}
+ }
+ 
+-int gpio_request(unsigned gpio, const char *label)
++int xl_gpio_request(unsigned gpio, const char *label)
+ {
+ 	u32 gpio_priv;
+ 	struct xilinx_gpio_priv *priv;
+@@ -286,7 +286,7 @@ int gpio_request(unsigned gpio, const char *label)
+ 	return -1;
+ }
+ 
+-int gpio_free(unsigned gpio)
++int xl_gpio_free(unsigned gpio)
+ {
+ 	u32 gpio_priv;
+ 	struct xilinx_gpio_priv *priv;
+@@ -306,7 +306,7 @@ int gpio_free(unsigned gpio)
+ 	return -1;
+ }
+ 
+-int gpio_alloc(u32 baseaddr, const char *name, u32 gpio_no)
++int xl_gpio_alloc(u32 baseaddr, const char *name, u32 gpio_no)
+ {
+ 	struct xilinx_gpio_priv *priv;
+ 
+@@ -340,8 +340,8 @@ int gpio_alloc_dual(u32 baseaddr, const char *name, u32 gpio_no0, u32 gpio_no1)
+ {
+ 	int ret;
+ 
+-	ret = gpio_alloc(baseaddr, name, gpio_no0);
+-	gpio_alloc(baseaddr + 8, strcat((char *)name, "_1"), gpio_no1);
++	ret = xl_gpio_alloc(baseaddr, name, gpio_no0);
++	xl_gpio_alloc(baseaddr + 8, strcat((char *)name, "_1"), gpio_no1);
+ 
+ 	/* Return the first gpio allocated for this device */
+ 	return ret;
