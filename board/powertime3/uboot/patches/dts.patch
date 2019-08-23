@@ -1,0 +1,120 @@
+diff --git a/arch/arm/dts/zynq-mars-zx2.dts b/arch/arm/dts/zynq-mars-zx2.dts
+index e1ef973..9f901ef 100644
+--- a/arch/arm/dts/zynq-mars-zx2.dts
++++ b/arch/arm/dts/zynq-mars-zx2.dts
+@@ -15,6 +15,7 @@
+ 
+ 	aliases {
+ 		ethernet0 = &gem0;
++		ethernet1 = &gem1;
+ 		mmc0 = &sdhci0;
+ 		serial0 = &uart0;
+ 		spi0 = &qspi;
+@@ -26,6 +27,10 @@
+ 		device_type = "memory";
+ 		reg = <0 0x20000000>;
+ 	};
++
++
++
++
+ };
+ 
+ &uart0 {
+@@ -46,16 +51,93 @@
+ 	cd-gpios = <&gpio0 50 GPIO_ACTIVE_LOW>;
+ };
+ 
++
+ &gem0 {
+ 	u-boot,dm-pre-reloc;
+ 	status = "okay";
+-	phy-handle = <&ethernet_phy>;
+ 	phy-mode = "rgmii-id";
+-	ethernet_phy: ethernet-phy@3 {
+-		reg = <3>;
++	phy-handle = <&phy3>;
++    ps7_ethernet_0_mdio: mdio {
++        #address-cells = <1>;
++        #size-cells = <0>;
++		
++		phy3: ethernet-phy@3 {
++			device_type = "ethernet-phy";
++      		reg = <3>;
++     	};
+ 	};
++
++};
++&gem1 {
++	u-boot,dm-pre-reloc;
++	phy-handle = <&phy0>;
++  	gmii2rgmii-phy-handle = <&gmii_to_rgmii_0>;
++	phy-mode = "gmii";
++	status = "okay";
++
++	ps7_ethernet_1_mdio: mdio {
++        #address-cells = <1>;
++        #size-cells = <0>;
++		
++        phy0: phy@0 {
++			device_type = "ethernet-phy";
++			reg = <0>;
++        };
++  
++        gmii_to_rgmii_0: phy@8 {
++            compatible = "xlnx,gmii-to-rgmii-1.0";
++            reg = <8>;
++            phy-handle = <&phy0>;
++        };
++    };
++};
++
++
++
++
++/*
++&gem0 {
++	u-boot,dm-pre-reloc;
++	status = "okay";
++	phy-handle = <&ethernet_phy>;
++	phy-mode = "rgmii-id";
++	phy-handle = <&phy3>;
++	xlnx,has-mdio = <0x1>;
++	mdio {
++                #address-cells = <1>;
++                #size-cells = <0>;
++                phy3: ethernet-phy@3 {
++                        reg = <3>;
++                };
++        };
+ };
+ 
++&gem1 {
++	u-boot,dm-pre-reloc;
++	local-mac-address=[00 0a 35 00 22 28];
++	phy-mode = "rgmii-id";
++ 	phy-handle = <&phy0>;
++  	gmii2rgmii-phy-handle = <&gmii_to_rgmii_0>;
++	xlnx,has-mdio = <0x1>;
++	status = "okay";
++	ps7_ethernet_1_mdio: mdio {
++	  		#address-cells = <1>;
++	  		#size-cells = <0>;
++	  		phy0: phy@0 {
++		        compatible = "marvell,m88e1518";
++		        device_type = "ethernet-phy";
++		        reg = <0x0>;
++				marvell,reg-init = <0  0x1410>;
++			};  
++	 	 	gmii_to_rgmii_0: phy@8 {
++        		//compatible = "xlnx,gmii-to-rgmii-1.0";
++        		reg = <8>;
++       			//phy-handle = <&phy0>;
++	  		};
++	}; 
++};
++ */
++
+ &usb0 {
+ 	status = "okay";
+ };
