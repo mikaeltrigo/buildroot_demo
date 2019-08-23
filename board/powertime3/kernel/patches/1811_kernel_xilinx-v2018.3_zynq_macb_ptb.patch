@@ -1,0 +1,1401 @@
+From 7e9b166e2c3dad170793a58e9611d5065275c4b4 Mon Sep 17 00:00:00 2001
+From: developer <info@soc-e.com>
+Date: Tue, 16 Apr 2019 11:43:52 +0200
+Subject: [PATCH 1/1] 190416_kernel_xilinx-v2018.3_ptb.patch applied.
+
+---
+ drivers/net/ethernet/cadence/Kconfig     |    6 +
+ drivers/net/ethernet/cadence/Makefile    |    1 +
+ drivers/net/ethernet/cadence/macb_main.c |  173 +++-
+ drivers/net/ethernet/cadence/macb_ptp.c  |    2 +
+ drivers/net/ethernet/cadence/soce_ptb.c  | 1013 ++++++++++++++++++++++
+ drivers/net/ethernet/cadence/soce_ptb.h  |   55 ++
+ 6 files changed, 1240 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/ethernet/cadence/soce_ptb.c
+ create mode 100644 drivers/net/ethernet/cadence/soce_ptb.h
+
+diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+index 427d65a1a126..fbb8a0bea169 100644
+--- a/drivers/net/ethernet/cadence/Kconfig
++++ b/drivers/net/ethernet/cadence/Kconfig
+@@ -48,4 +48,10 @@ config MACB_PCI
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called macb_pci.
+ 
++config SOCE_MACB_HWTSTAMP
++	bool "Soc-e PTB support"
++	depends on MACB
++	---help---
++	  Support for SoC-e PTB.
++
+ endif # NET_CADENCE
+diff --git a/drivers/net/ethernet/cadence/Makefile b/drivers/net/ethernet/cadence/Makefile
+index 1f33cdca9a3c..ec7a8598016f 100644
+--- a/drivers/net/ethernet/cadence/Makefile
++++ b/drivers/net/ethernet/cadence/Makefile
+@@ -10,3 +10,4 @@ endif
+ 
+ obj-$(CONFIG_MACB) += macb.o
+ obj-$(CONFIG_MACB_PCI) += macb_pci.o
++obj-$(CONFIG_SOCE_MACB_HWTSTAMP) += soce_ptb.o
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index 3563781dde05..c5e244f80b08 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -39,6 +39,20 @@
+ #include <linux/crc32.h>
+ #include <linux/inetdevice.h>
+ #include "macb.h"
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++#include "soce_ptb.h"
++#endif
++
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++#define MACB_TX_PTPHDR_OFFSET_L3	42 /* Sum of Ethernet, IP and UDP header length */
++#define MACB_RX_PTPHDR_OFFSET_L3	28 /* Sum of IP and UDP header length */
++#define MACB_TX_PTPHDR_OFFSET_L2	14 /* Sum of Ethernet, IP and UDP header length */
++#define MACB_RX_PTPHDR_OFFSET_L2	0  /* Sum of IP and UDP header length */
++#define MACB_ETHTYPE_OFFSET		12  /* Ethertype field offset */
++#define MACB_IP_PROTO_OFFSET		9  /* Protocol field offset */
++#define MACB_UDP_PORT_OFFSET		22 /* UDP dst port offset */
++#define MACB_PTP_EVENT_PORT_NUM	0x13F /* Transport port for ptp */
++#endif
+ 
+ #define MACB_RX_BUFFER_SIZE	128
+ #define RX_BUFFER_MULTIPLE	64  /* bytes */
+@@ -879,17 +893,59 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+ 
+ 			/* First, update TX stats if needed */
+ 			if (skb) {
+-				if (gem_ptp_do_txstamp(queue, skb, desc) == 0) {
+-					/* skb now belongs to timestamp buffer
+-					 * and will be removed later
+-					 */
+-					tx_skb->skb = NULL;
+-				}
+ 				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
+-					    macb_tx_ring_wrap(bp, tail),
+-					    skb->data);
++								macb_tx_ring_wrap(bp, tail),
++								skb->data);
+ 				bp->dev->stats.tx_packets++;
+ 				bp->dev->stats.tx_bytes += skb->len;
++
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++				if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)
++				{
++					u16 tmp, tx_ethertype, vlan_id;
++					u8 vlan_size = 0;
++					vlan_id = 0;
++					skb_copy_from_linear_data_offset(skb,	MACB_ETHTYPE_OFFSET, &tmp, 2);
++					tx_ethertype = ntohs(tmp);
++					if (tx_ethertype == ETH_P_8021Q)
++					{
++						skb_copy_from_linear_data_offset(skb,	MACB_ETHTYPE_OFFSET + 2, &tmp, 2);
++						vlan_id = ntohs(tmp) & 0xfff;
++						vlan_size = 4;
++						skb_copy_from_linear_data_offset(skb,	MACB_ETHTYPE_OFFSET + 4, &tmp, 2);
++						tx_ethertype = ntohs(tmp);
++						if (tx_ethertype == ETH_P_8021Q)
++						{
++							vlan_size = 8;
++							skb_copy_from_linear_data_offset(skb,	MACB_ETHTYPE_OFFSET + 8, &tmp, 2);
++							tx_ethertype = ntohs(tmp);
++						}
++					}
++					if ((tx_ethertype & 0xff00) == 0x4000 || (tx_ethertype & 0xff00) == 0x6000 )
++					{
++						skb_copy_from_linear_data_offset(skb,	MACB_ETHTYPE_OFFSET + 1, &tmp, 1);
++						vlan_id = ((ntohs(tmp) >>3)&0xff);
++						vlan_size = 4;
++						skb_copy_from_linear_data_offset(skb,	MACB_ETHTYPE_OFFSET + 4, &tmp, 2);
++						tx_ethertype = ntohs(tmp);
++					}
++					if (tx_ethertype == ETH_P_1588) {
++            soce_ptb_tx_hwtstamp(skb, MACB_TX_PTPHDR_OFFSET_L2 + vlan_size, vlan_id);
++          }
++          else {
++            soce_ptb_tx_hwtstamp(skb, MACB_TX_PTPHDR_OFFSET_L3 + vlan_size, vlan_id);
++          }
++
++				}
++#else
++				if (gem_ptp_do_txstamp(queue, skb, desc) == 0)
++				{
++ 					/* skb now belongs to timestamp buffer
++ 					 * and will be removed later
++ 					 */
++ 					tx_skb->skb = NULL;
++ 				}
++#endif /* CONFIG_SOCE_MACB_HWTSTAMP */
+ 			}
+ 
+ 			/* Now we can safely release resources */
+@@ -1005,6 +1061,11 @@ static int gem_rx(struct macb *bp, int budget)
+ 	struct sk_buff		*skb;
+ 	struct macb_dma_desc	*desc;
+ 	int			count = 0;
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++	u16 rx_ethertype;
++	u8 vlan_size = 0;
++	u16 vlan_id = 0;
++#endif /* CONFIG_SOCE_MACB_HWTSTAMP */
+ 
+ 	while (count < budget) {
+ 		u32 ctrl;
+@@ -1071,7 +1132,42 @@ static int gem_rx(struct macb *bp, int budget)
+ 		bp->dev->stats.rx_packets++;
+ 		bp->dev->stats.rx_bytes += skb->len;
+ 
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++    rx_ethertype = ntohs(skb->protocol);
++    if (rx_ethertype == ETH_P_8021Q) {
++      u16 tmp;
++      skb_copy_from_linear_data_offset(skb,	0, &tmp, 2);
++      vlan_id = ntohs(tmp) & 0xfff;
++      vlan_size = 4;
++      skb_copy_from_linear_data_offset(skb,	2, &tmp, 2);
++      rx_ethertype = ntohs(tmp);
++      if (rx_ethertype == ETH_P_8021Q) {
++        vlan_size = 8;
++        skb_copy_from_linear_data_offset(skb,	6, &tmp, 2);
++        rx_ethertype = ntohs(tmp);
++      }
++    }
++    if (rx_ethertype == ETH_P_IP) {
++      u8 transport_poto;
++      u16 dst_port;
++      skb_copy_from_linear_data_offset(skb,	MACB_IP_PROTO_OFFSET + vlan_size, &transport_poto, 1);
++      if (transport_poto == IPPROTO_UDP) {
++        skb_copy_from_linear_data_offset(skb,	MACB_UDP_PORT_OFFSET + vlan_size, &dst_port, 2);
++        if (ntohs(dst_port) == MACB_PTP_EVENT_PORT_NUM) {
++          soce_ptb_rx_hwtstamp(skb, MACB_RX_PTPHDR_OFFSET_L3 + vlan_size, vlan_id);
++        }
++      }
++    }
++    else if (rx_ethertype == ETH_P_1588) {
++      u8 msg_type;
++      skb_copy_from_linear_data_offset(skb, MACB_RX_PTPHDR_OFFSET_L2 + vlan_size, &msg_type, 1);
++      if ((msg_type & 0xf) <= 7) {
++        soce_ptb_rx_hwtstamp(skb, MACB_RX_PTPHDR_OFFSET_L2 + vlan_size, vlan_id);
++      }
++    }
++#else
+ 		gem_ptp_do_rxstamp(bp, skb, desc);
++#endif /* CONFIG_SOCE_MACB_HWTSTAMP */
+ 
+ #if defined(DEBUG) && defined(VERBOSE_DEBUG)
+ 		netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+@@ -2720,12 +2816,17 @@ static s32 gem_get_ptp_max_adj(void)
+ static int gem_get_ts_info(struct net_device *dev,
+ 			   struct ethtool_ts_info *info)
+ {
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++	info->phc_index = get_phc_index(dev);
++#else
+ 	struct macb *bp = netdev_priv(dev);
+ 
+ 	if ((bp->hw_dma_cap & HW_DMA_CAP_PTP) == 0) {
+ 		ethtool_op_get_ts_info(dev, info);
+ 		return 0;
+ 	}
++	info->phc_index = bp->ptp_clock ? ptp_clock_index(bp->ptp_clock) : -1;
++#endif /* CONFIG_SOCE_MACB_HWTSTAMP */
+ 
+ 	info->so_timestamping =
+ 		SOF_TIMESTAMPING_TX_SOFTWARE |
+@@ -2742,11 +2843,53 @@ static int gem_get_ts_info(struct net_device *dev,
+ 		(1 << HWTSTAMP_FILTER_NONE) |
+ 		(1 << HWTSTAMP_FILTER_ALL);
+ 
+-	info->phc_index = bp->ptp_clock ? ptp_clock_index(bp->ptp_clock) : -1;
+-
+ 	return 0;
+ }
+ 
++static int macb_hwtstamp_ioctl(struct net_device *dev,
++			       struct ifreq *ifr, int cmd)
++{
++	struct hwtstamp_config config;
++
++	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
++		return -EFAULT;
++
++	/* reserved for future extensions */
++	if (config.flags)
++		return -EINVAL;
++
++	if ((config.tx_type != HWTSTAMP_TX_OFF) &&
++	    (config.tx_type != HWTSTAMP_TX_ON))
++		return -ERANGE;
++
++	switch (config.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_ALL:
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		config.rx_filter = HWTSTAMP_FILTER_ALL;
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	config.tx_type = HWTSTAMP_TX_ON;
++
++	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
++		-EFAULT : 0;
++}
++
+ static struct macb_ptp_info gem_ptp_info = {
+ 	.ptp_init	 = gem_ptp_init,
+ 	.ptp_remove	 = gem_ptp_remove,
+@@ -2761,12 +2904,16 @@ static struct macb_ptp_info gem_ptp_info = {
+ static int macb_get_ts_info(struct net_device *netdev,
+ 			    struct ethtool_ts_info *info)
+ {
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++	return gem_get_ts_info(netdev, info);
++#else
+ 	struct macb *bp = netdev_priv(netdev);
+ 
+ 	if (bp->ptp_info)
+ 		return bp->ptp_info->get_ts_info(netdev, info);
+ 
+ 	return ethtool_op_get_ts_info(netdev, info);
++#endif /* CONFIG_SOCE_MACB_HWTSTAMP */
+ }
+ 
+ static const struct ethtool_ops macb_ethtool_ops = {
+@@ -2805,12 +2952,18 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	if (!phydev)
+ 		return -ENODEV;
+ 
++#ifndef CONFIG_SOCE_MACB_HWTSTAMP
+ 	if (!bp->ptp_info)
+ 		return phy_mii_ioctl(phydev, rq, cmd);
++#endif /* CONFIG_SOCE_MACB_HWTSTAMP */
+ 
+ 	switch (cmd) {
+ 	case SIOCSHWTSTAMP:
++#ifdef CONFIG_SOCE_MACB_HWTSTAMP
++		return macb_hwtstamp_ioctl(dev, rq, cmd);
++#else
+ 		return bp->ptp_info->set_hwtst(dev, rq, cmd);
++#endif
+ 	case SIOCGHWTSTAMP:
+ 		return bp->ptp_info->get_hwtst(dev, rq);
+ 	default:
+diff --git a/drivers/net/ethernet/cadence/macb_ptp.c b/drivers/net/ethernet/cadence/macb_ptp.c
+index bba898f929f6..dc25b8a8f900 100755
+--- a/drivers/net/ethernet/cadence/macb_ptp.c
++++ b/drivers/net/ethernet/cadence/macb_ptp.c
+@@ -354,6 +354,7 @@ static void gem_tx_timestamp_flush(struct work_struct *work)
+ 
+ void gem_ptp_init(struct net_device *dev)
+ {
++#ifndef CONFIG_SOCE_MACB_HWTSTAMP
+ 	struct macb *bp = netdev_priv(dev);
+ 	struct macb_queue *queue;
+ 	unsigned int q;
+@@ -385,6 +386,7 @@ void gem_ptp_init(struct net_device *dev)
+ 
+ 	dev_info(&bp->pdev->dev, "%s ptp clock registered.\n",
+ 		 GEM_PTP_TIMER_NAME);
++#endif
+ }
+ 
+ void gem_ptp_remove(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/cadence/soce_ptb.c b/drivers/net/ethernet/cadence/soce_ptb.c
+new file mode 100644
+index 000000000000..5876fb7833a9
+--- /dev/null
++++ b/drivers/net/ethernet/cadence/soce_ptb.c
+@@ -0,0 +1,1013 @@
++//**************************************************************//
++//                    _______               _______             //
++//    _||_||_||_     / ____  |             / ____  |            //
++//   |          |   | /    \_|   ______   | /    \_|     _____  //
++// ==|          |== | \_____    / ____ \  | |           / ___ \ //
++// ==|          |==  \_____ \  | /    \ | | |          / /__/ / //
++// ==|          |==  _     \ | | |    | | | |     _   / _____/  //
++//   |__________|   | \____/ | | \____/ | | \____/ | / /____    //
++//     || || ||     |_______/   \______/   \______/  \_____/    //
++//                                                              //
++//                     Copyright (c) 2015                       //
++//               System on Chip engineering, S.L.               //
++//                        www.soc-e.com                         //
++//                                                              //
++//**************************************************************//
++//            Licensing information, do not remove.             //
++//                                                              //
++// This source file is free software; you can redistribute it   //
++// and/or modify it under the terms of the GNU Lesser General   //
++// Public License as published by the Free Software Foundation; //
++// either version 3 of the License, or (at your option) any     //
++// later version.                                               //
++//                                                              //
++// This source is distributed in the hope that it will be       //
++// useful, but WITHOUT ANY WARRANTY; without even the implied   //
++// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR      //
++// PURPOSE. See the GNU Lesser General Public License for more  //
++// details.                                                     //
++//                                                              //
++// You should have received a copy of the GNU Lesser General    //
++// Public License along with this program. If not, see:         //
++// <http://www.gnu.org/licenses/>.                              //
++//                                                              //
++//**************************************************************//
++//                                                              //
++// Revision list                                                //
++// Author            Date       Changes                         //
++// Sergio Salas      16/01/04   Initial version                 //
++//                                                              //
++//**************************************************************//
++//!
++//! \file: soce_ptb.c
++//! \brief: kernel module for SoC-e PTP IP cores
++//! \version: 160104
++//!
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/io.h>
++#include <linux/interrupt.h>
++#include <linux/ptp_clock_kernel.h>
++#include <linux/ethtool.h>
++#include <linux/net_tstamp.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++
++#include <linux/of_address.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++
++#include "soce_ptb.h"
++
++//#define DEBUG_MODE
++#ifdef DEBUG_MODE
++#define DEBUG_CODE(argument) argument
++#else
++#define DEBUG_CODE(argument)
++#endif /* DEBUG_MODE */
++
++/* Memory map for core registers (32bit) */
++#define PTB_CORE_VERSION            0X00000000  /* PTB IP Core version */
++#define PTB_LIC_INFO                0X00000004  /* PTB license info */
++#define CAPTURES_FIFO_COUNT	  	    0X00000008	/* Number of timestamps in the FIFO */
++#define CAPTURES_STAT_COUNT_CNTRL   0X0000000C  /* Statistic counter control (reset counters) */
++#define CAPTURE_RX_TS_L			        0X00000010	/* Time stamp (lower 32-bit) */
++#define CAPTURE_RX_TS_H			        0X00000014	/* Time stamp (upper 32-bit) */
++#define CAPTURE_RX_MSG_INFO		      0X00000018	/* Sequence ID (16-bit) / Message Type (4-bit) */
++#define CAPTURE_RX_PTP_PORT_ID	    0X0000001C  /* Source Port ID - Port ID */
++#define CAPTURE_RX_PTP_CLK_ID_L	    0X00000020 	/* Source Port ID - Clock ID (lower 32-bit) */
++#define CAPTURE_RX_PTP_CLK_ID_H	    0X00000024 	/* Source Port ID - Clock ID (upper 32-bit) */
++#define CAPTURE_RX_FRAME_COUNT      0X00000028  /* Rx statistic counter - Number of frames received */
++#define CAPTURE_RX_PTP_FRAME_COUNT  0X0000002C  /* Rx statistic counter - Number of PTP frames received */
++#define CAPTURE_TX_TS_L			        0X00000030	/* Time stamp (lower 32-bit) */
++#define CAPTURE_TX_TS_H			        0X00000034	/* Time stamp (upper 32-bit) */
++#define CAPTURE_TX_MSG_INFO		      0X00000038	/* Sequence ID (16-bit) / Message Type (4-bit) */
++#define CAPTURE_TX_PTP_PORT_ID	    0X0000003C  /* Source Port ID - Port ID */
++#define CAPTURE_TX_PTP_CLK_ID_L	    0X00000040 	/* Source Port ID - Clock ID (lower 32-bit) */
++#define CAPTURE_TX_PTP_CLK_ID_H	    0X00000044 	/* Source Port ID - Clock ID (upper 32-bit) */
++#define CAPTURE_TX_FRAME_COUNT      0X00000048  /* Tx statistic counter - Number of frames received */
++#define CAPTURE_TX_PTP_FRAME_COUNT  0X0000004C  /* Tx statistic counter - Number of PTP frames received */
++#define TMR_ADD					            0X00000050	/* Drift Compensation Register */
++#define TMR_PERIOD				          0X00000054	/* Reference Clock Period Register */
++#define TMR_CNT_EXTERNAL_L		      0X00000058	/* Timer Count External (writable) LOW */
++#define TMR_CNT_EXTERNAL_H		      0X0000005C	/* Timer Count External (writable) HIGH */
++#define TMR_CNT_L				            0X00000060	/* Timer Count (Read Only) LOW */
++#define TMR_CNT_H				            0X00000064	/* Timer Count (Read Only) HIGH */
++#define ALARMS_VALID_ALARM_VALUES   0X00000068  /* Alarm detection - Valid alarm values */
++#define ALARM_0_VALUE_L             0X0000006C  /* Alarm 0 value (lower 32-bit) */
++#define ALARM_0_VALUE_H             0X00000070  /* Alarm 0 value (upper 32-bit) */
++#define ALARM_1_VALUE_L             0X00000074  /* Alarm 1 value (lower 32-bit) */
++#define ALARM_1_VALUE_H             0X00000078  /* Alarm 1 value (upper 32-bit) */
++#define ALARM_2_VALUE_L             0X0000007C  /* Alarm 2 value (lower 32-bit) */
++#define ALARM_2_VALUE_H             0X00000080  /* Alarm 2 value (upper 32-bit) */
++#define ALARM_3_VALUE_L             0X00000084  /* Alarm 3 value (lower 32-bit) */
++#define ALARM_3_VALUE_H             0X00000088  /* Alarm 3 value (upper 32-bit) */
++#define EVENTS_ENABLE               0X0000008C  /* Event Timestamping - Chip enables */
++#define EVENT_0_TS_L                0X00000090  /* Event 0 time stamp (lower 32-bit) */
++#define EVENT_0_TS_H                0X00000094  /* Event 0 time stamp (upper 32-bit) */
++#define EVENT_1_TS_L                0X00000098  /* Event 1 time stamp (lower 32-bit) */
++#define EVENT_1_TS_H                0X0000009C  /* Event 1 time stamp (upper 32-bit) */  
++#define EVENT_2_TS_L                0X000000A0  /* Event 2 time stamp (lower 32-bit) */
++#define EVENT_2_TS_H                0X000000A4  /* Event 2 time stamp (upper 32-bit) */  
++#define EVENT_3_TS_L                0X000000A8  /* Event 3 time stamp (lower 32-bit) */
++#define EVENT_3_TS_H                0X000000AC  /* Event 3 time stamp (upper 32-bit) */     
++
++#define NS_PER_SEC				1000000000ULL /* Nanoseconds per second */
++#define NUMBER_OF_CAP_REGS	 	6
++#define RX_CAP_REGS_OFFSET		4
++#define TX_CAP_REGS_OFFSET		12
++#define TIMESTAMP_QUEUE_SIZE	5		/* Max number of timestamps in queue */
++#define MAX_NUM_PTB				8		/* Max number of PTB IP cores in a system */
++
++/* PTP messages header info */
++#define PTP_HDR_SIZE			34
++#define PTP_SEQ_ID_OFFSET		30
++#define PTP_MSG_TYPE_OFFSET		0
++#define PTP_CLOCK_ID_OFFSET		20
++
++/* Standard module information, edit as appropriate */
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("System-on-Chip engineering, SL");
++MODULE_DESCRIPTION("kernel module for SoC-e PTP IP cores");
++
++#define DRIVER_NAME "soce_ptb_mod"
++
++struct SoceCaptureData {
++	uint32_t timestamp_l;     /* 32bit */
++	uint32_t timestamp_h;     /* 32bit */
++	uint8_t msg_type;         /* 8bit */
++	uint16_t sequence_id;     /* 16bit */
++	uint32_t ptp_clock_id_l;  /* 32bit */
++	uint32_t ptp_clock_id_h;  /* 32bit */
++	uint16_t ptp_port_id;     /* 16bit */
++	uint16_t ptp_vlan_id;     /* 16bit */
++};
++
++struct ts_queue {
++	struct SoceCaptureData ts_items[TIMESTAMP_QUEUE_SIZE];
++	int write_ptr;
++	int num_items; //Number of timestamps in the queue
++	spinlock_t lock;
++};
++
++struct soce_ptb_local {
++	struct ptp_clock_info ptp_caps;
++	struct ptp_clock *ptp_clock;
++	unsigned int phc_id;
++	spinlock_t reg_lock;
++	u32 base_addend_val;
++	struct ts_queue rx_queue;
++	struct ts_queue tx_queue;
++	int zynq_gmac_parser_flag;
++	int irq;
++	unsigned long mem_start;
++	unsigned long mem_end;
++	void __iomem *base_addr;
++};
++
++static struct soce_ptb_local * soce_ptb_local_ptrs[MAX_NUM_PTB];
++static unsigned int soce_ptb_eth_addrs[MAX_NUM_PTB];
++static unsigned int soce_phc_indexes[MAX_NUM_PTB];
++static unsigned int num_soce_ptb = 0;
++struct ptp_clock_info * global_ptp_clock = NULL;
++
++/********************* TIMER MANAGEMENT *********************/
++
++/**
++ * soce_ptb_enable - Select the mode of operation
++ * @ptp: PTP clock structure
++ * @rq: Requested feature to change
++ * @on: Whether to enable or disable the feature
++ * Return: Always returns EOPNOTSUPP
++ */
++static int soce_ptb_enable(struct ptp_clock_info *ptp,
++			      struct ptp_clock_request *rq, int on)
++{
++	return -EOPNOTSUPP;
++}
++
++/**
++ * soce_ptb_gettime - Get the current time from the timer counter
++ * @ptp: PTP clock structure
++ * @ts: Timespec structure to hold the current time value
++ * Return: Always returns zero
++ */
++static int soce_ptb_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
++{
++	unsigned long flags;
++	struct soce_ptb_local *lp = container_of(ptp, struct soce_ptb_local, ptp_caps);
++	volatile u32 *p_second = lp->base_addr + TMR_CNT_H;
++	volatile u32 *p_nanosecond = lp->base_addr + TMR_CNT_L;
++
++	/* Read seconds and nanoseconds from hardware clock */
++	spin_lock_irqsave(&lp->reg_lock, flags);
++	ts->tv_sec = *p_second;
++	ts->tv_nsec = *p_nanosecond;
++	spin_unlock_irqrestore(&lp->reg_lock, flags);
++
++	return 0;
++}
++
++/**
++ * soce_ptb_settime - Reset the timercounter to use new base value
++ * @ptp: PTP clock structure
++ * @ts: Timespec structure to hold the current time value
++ * Return: Always returns zero
++ */
++static int soce_ptb_settime(struct ptp_clock_info *ptp,
++			       const struct timespec64 *ts)
++{
++	unsigned long flags;
++	struct soce_ptb_local *lp = container_of(ptp, struct soce_ptb_local, ptp_caps);
++	volatile u32 *p_second = lp->base_addr + TMR_CNT_EXTERNAL_H;
++	volatile u32 *p_nanosecond = lp->base_addr + TMR_CNT_EXTERNAL_L;
++
++	/* Write seconds and nanoseconds to hardware clock */
++	spin_lock_irqsave(&lp->reg_lock, flags);
++	*p_second = (u32)ts->tv_sec;
++	*p_nanosecond = (u32)ts->tv_nsec;
++	spin_unlock_irqrestore(&lp->reg_lock, flags);
++
++	return 0;
++}
++
++/**
++ * soce_ptb_adjfreq - Adjust the clock freequency
++ * @ptp: PTP clock info structure
++ * @ppb: Frequency in parts per billion
++ * Return: Always returns zero
++ */
++static int soce_ptb_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
++{
++	unsigned long flags;
++	struct soce_ptb_local *lp = container_of(ptp, struct soce_ptb_local, ptp_caps);
++	volatile u32 *p_addend = lp->base_addr + TMR_ADD;
++	u32 new_addend_val;
++	u64 adjust_val;
++	int neg_adj = 0;
++
++	if (ppb < 0) {
++		neg_adj = 1;
++		ppb = -ppb;
++	}
++
++	adjust_val = lp->base_addend_val;
++	adjust_val *= ppb;
++	adjust_val = div_u64(adjust_val, NS_PER_SEC);
++	if (neg_adj)
++	{
++		new_addend_val = (u32)(lp->base_addend_val - adjust_val);
++		DEBUG_CODE(printk(KERN_DEBUG "Adjusting addend value: %u = %u - %llu\n",
++			new_addend_val, lp->base_addend_val, adjust_val);)
++	}	
++	else
++	{
++		new_addend_val = (u32)(lp->base_addend_val + adjust_val);
++		DEBUG_CODE(printk(KERN_DEBUG "Adjusting addend value: %u = %u + %llu\n",
++			new_addend_val, lp->base_addend_val, adjust_val);)
++	}
++
++	/* Write seconds and nanoseconds to hardware clock */
++	spin_lock_irqsave(&lp->reg_lock, flags);
++	*p_addend = new_addend_val;
++	spin_unlock_irqrestore(&lp->reg_lock, flags);
++
++	return 0;
++}
++
++/**
++ * soce_ptb_adjtime - Adjust the timer counter value with delta
++ * @ptp: PTP clock info structure
++ * @delta: Delta value in nano seconds
++ * Return: Always returns zero
++ */
++static int soce_ptb_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	unsigned long flags;
++	struct soce_ptb_local *lp = container_of(ptp, struct soce_ptb_local, ptp_caps);
++	volatile u32 *p_second = lp->base_addr + TMR_CNT_H;
++	volatile u32 *p_nanosecond = lp->base_addr + TMR_CNT_L;
++	u64 ns;
++	u32 remainder;
++
++	/* Read current time and add delta value */
++	spin_lock_irqsave(&lp->reg_lock, flags);
++	ns = *p_second;
++	ns *= NS_PER_SEC;
++	ns += *p_nanosecond;
++	ns += delta;
++
++	/* Write new time value to hardware clock */
++	p_second = lp->base_addr + TMR_CNT_EXTERNAL_H;
++	p_nanosecond = lp->base_addr + TMR_CNT_EXTERNAL_L;
++	*p_second = div_u64_rem(ns, NS_PER_SEC, &remainder);
++	*p_nanosecond = remainder;
++	spin_unlock_irqrestore(&lp->reg_lock, flags);
++
++	return 0;
++}
++
++/********************* QUEUE MANAGEMENT *********************/
++
++void time_to_ull(uint64_t *time64, uint32_t seconds, uint32_t nanoseconds)
++{
++	*time64 = seconds;
++	*time64 *= NS_PER_SEC;
++	*time64 += nanoseconds;
++}
++
++void tsq_flush(struct ts_queue *queue)
++{
++	unsigned long flags;
++	spin_lock_irqsave(&(queue->lock), flags);
++
++	queue->write_ptr = 0;
++	queue->num_items = 0;
++
++	spin_unlock_irqrestore(&(queue->lock), flags);
++}
++
++void tsq_init(struct ts_queue *queue)
++{
++	spin_lock_init(&(queue->lock));
++	tsq_flush(queue);
++}
++
++void tsq_insert_item(struct ts_queue *queue, struct SoceCaptureData *tstamp_d)
++{
++	unsigned long flags;
++	spin_lock_irqsave(&(queue->lock), flags);
++
++	queue->ts_items[queue->write_ptr] = *tstamp_d;
++	queue->write_ptr++;
++	if (queue->write_ptr == TIMESTAMP_QUEUE_SIZE)
++		queue->write_ptr = 0;
++	if (queue->num_items < TIMESTAMP_QUEUE_SIZE)
++		queue->num_items++;
++
++	spin_unlock_irqrestore(&(queue->lock), flags);
++}
++
++int tsq_find_item_1(struct ts_queue *queue, struct SoceCaptureData *tstamp_d)
++{
++	unsigned long flags;
++	int i, read_ptr, items_in_queue;
++
++	spin_lock_irqsave(&(queue->lock), flags);
++	items_in_queue = queue->num_items;
++	if(items_in_queue)
++	{
++		read_ptr = queue->write_ptr - 1;
++		if(read_ptr < 0)
++			read_ptr = TIMESTAMP_QUEUE_SIZE - 1;
++		for(i = 0; i < items_in_queue; i++)	/* Search the queue */
++		{
++			if(queue->ts_items[read_ptr].msg_type == tstamp_d->msg_type)
++			{
++				if((queue->ts_items[read_ptr].sequence_id == tstamp_d->sequence_id) &&
++					(queue->ts_items[read_ptr].ptp_clock_id_h == tstamp_d->ptp_clock_id_h) &&
++					(queue->ts_items[read_ptr].ptp_clock_id_l == tstamp_d->ptp_clock_id_l) &&
++					(queue->ts_items[read_ptr].ptp_port_id == tstamp_d->ptp_port_id) &&
++					(queue->ts_items[read_ptr].ptp_vlan_id == tstamp_d->ptp_vlan_id))
++				{
++				  break;
++				}
++			}
++			read_ptr--;
++			if(read_ptr < 0)
++				read_ptr = TIMESTAMP_QUEUE_SIZE - 1;
++		}
++		if(i == items_in_queue)
++		{
++			/* Item not found */
++			spin_unlock_irqrestore(&(queue->lock), flags);
++			//printk(KERN_DEBUG "No item in queue with seq_id %u\n", tstamp_d->sequence_id);
++			return -2;
++		}
++		else
++		{
++			*tstamp_d = queue->ts_items[read_ptr];
++			spin_unlock_irqrestore(&(queue->lock), flags);
++			return 0;
++		}
++	}
++	else
++	{
++		spin_unlock_irqrestore(&(queue->lock), flags);
++		//printk(KERN_DEBUG "Get error: empty queue\n");
++		return -1;
++	}
++}
++
++int tsq_find_item_2(struct ts_queue *queue, struct SoceCaptureData *tstamp_d)
++{
++	unsigned long flags;
++	int i, read_ptr, items_in_queue;
++	uint64_t hw_ts, sw_ts, diff_ts = 0xffffffffffffffff;
++	time_to_ull(&sw_ts, tstamp_d->timestamp_h, tstamp_d->timestamp_l);
++
++	spin_lock_irqsave(&(queue->lock), flags);
++	items_in_queue = queue->num_items;
++	if(items_in_queue)
++	{
++		read_ptr = queue->write_ptr - 1;
++		if(read_ptr < 0)
++			read_ptr = TIMESTAMP_QUEUE_SIZE - 1;
++		for(i = 0; i < items_in_queue; i++)	/* Search the queue */
++		{
++			if(queue->ts_items[read_ptr].msg_type == tstamp_d->msg_type)
++			{
++				time_to_ull(&hw_ts, queue->ts_items[read_ptr].timestamp_h, queue->ts_items[read_ptr].timestamp_l);
++				if(sw_ts > hw_ts)
++				{
++					diff_ts = sw_ts - hw_ts;
++					break;
++				}
++			}
++			read_ptr--;
++			if(read_ptr < 0)
++				read_ptr = TIMESTAMP_QUEUE_SIZE - 1;
++		}
++		if(diff_ts > 1000000)
++		{
++			/* Item not found */
++			spin_unlock_irqrestore(&(queue->lock), flags);
++			return -2;
++		}
++		else
++		{
++			queue->ts_items[read_ptr].sequence_id = tstamp_d->sequence_id;
++			*tstamp_d = queue->ts_items[read_ptr];
++			spin_unlock_irqrestore(&(queue->lock), flags);
++			return 0;
++		}
++	}
++	else
++	{
++		spin_unlock_irqrestore(&(queue->lock), flags);
++		//printk(KERN_DEBUG "Get error: empty queue\n");
++		return -1;
++	}
++}
++
++void tsq_print(struct ts_queue *queue)
++{
++	unsigned long flags;
++
++	int i, read_ptr, items_in_queue;
++	struct SoceCaptureData timestamps[TIMESTAMP_QUEUE_SIZE];
++
++	spin_lock_irqsave(&(queue->lock), flags);
++
++	items_in_queue = queue->num_items;
++	if(items_in_queue)
++	{
++		if(items_in_queue < TIMESTAMP_QUEUE_SIZE)
++		{
++			read_ptr = 0;
++		}
++		else
++		{
++			read_ptr = queue->write_ptr;
++		}
++		for(i = 0; i < items_in_queue; i++)
++		{
++			timestamps[i] = queue->ts_items[read_ptr];
++			read_ptr++;
++			if (read_ptr == TIMESTAMP_QUEUE_SIZE)
++				read_ptr = 0;
++		}
++	}
++
++	spin_unlock_irqrestore(&(queue->lock), flags);
++
++	if(items_in_queue)
++	{
++		for(i = 0; i < items_in_queue; i++)
++		{
++			printk(KERN_DEBUG "VLAN: %u \tSourcePortId: %08x-%08x-%04x MsgType: %u \tSeqID: %u \tTS: %u s %u ns\n", 
++			timestamps[i].ptp_vlan_id, timestamps[i].ptp_clock_id_h, timestamps[i].ptp_clock_id_l, timestamps[i].ptp_port_id,
++			timestamps[i].msg_type, timestamps[i].sequence_id, timestamps[i].timestamp_h, timestamps[i].timestamp_l);
++		}
++	}
++	else
++	{
++		printk(KERN_DEBUG "Can't print: Queue empty!\n");
++	}
++}
++
++void retrieve_hw_timestamps(struct soce_ptb_local *inst)
++{
++	struct SoceCaptureData ts;
++	uint32_t register_values[NUMBER_OF_CAP_REGS];
++	volatile uint32_t *p_fifo_ctrl = inst->base_addr + CAPTURES_FIFO_COUNT;
++	int i, j, k;
++
++	/* Process timestamps of received packets */
++	while((*p_fifo_ctrl & 0x00000080) != 0) {
++		for(i = 0, j = RX_CAP_REGS_OFFSET; i < NUMBER_OF_CAP_REGS; i++, j++){
++			register_values[i] = *(volatile uint32_t *)(inst->base_addr+(j*4));
++			/* When using Zynq GMAC PTP parser there are less registers */
++			if ((inst->zynq_gmac_parser_flag == 1) && (i == 2)) { 
++				for(k = i+1; k < NUMBER_OF_CAP_REGS; k++){
++					register_values[k] = 0;
++				}
++				break;
++			}
++		}
++
++		ts.timestamp_l = (uint32_t)register_values[0];
++		ts.timestamp_h = (uint32_t)register_values[1];
++		ts.msg_type = (uint8_t)(register_values[2] & 0xF);
++		ts.sequence_id = (uint16_t)(register_values[2] >> 16);
++		ts.ptp_port_id = (uint16_t)register_values[3];
++		ts.ptp_vlan_id = (uint16_t)(register_values[3] >> 16);
++		ts.ptp_clock_id_l = (uint32_t)register_values[4];
++		ts.ptp_clock_id_h = (uint32_t)register_values[5];
++
++		tsq_insert_item(&(inst->rx_queue), &ts);
++	};
++
++	/* Process timestamps of transmited packets */
++	while((*p_fifo_ctrl & 0x00008000) != 0) {
++		for(i = 0, j = TX_CAP_REGS_OFFSET; i < NUMBER_OF_CAP_REGS; i++, j++){
++			register_values[i] = *(volatile uint32_t *)(inst->base_addr+(j*4));
++			/* When using Zynq GMAC PTP parser there are less registers */
++			if ((inst->zynq_gmac_parser_flag == 1) && (i == 2)) { 
++				for(k = i+1; k < NUMBER_OF_CAP_REGS; k++){
++					register_values[k] = 0;
++				}
++				break;
++			}
++		}
++
++		ts.timestamp_l = (uint32_t)register_values[0];
++		ts.timestamp_h = (uint32_t)register_values[1];
++		ts.msg_type = (uint8_t)(register_values[2] & 0xF);
++		ts.sequence_id = (uint16_t)(register_values[2] >> 16);
++		ts.ptp_port_id = (uint16_t)register_values[3];
++		ts.ptp_vlan_id = (uint16_t)(register_values[3] >> 16);
++		ts.ptp_clock_id_l = (uint32_t)register_values[4];
++		ts.ptp_clock_id_h = (uint32_t)register_values[5];
++
++		tsq_insert_item(&(inst->tx_queue), &ts);
++	};
++}
++
++/**
++ * xemacps_rx_hwtstamp - Read rx timestamp from hw and update it to the skbuff
++ */
++void soce_ptb_rx_hwtstamp(struct sk_buff *skb,	unsigned int ptp_msg_offset, unsigned short ptp_vlan_id)
++{
++	u32 sec, nsec;
++	u64 time64;
++	struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
++	unsigned char ptp_header[PTP_HDR_SIZE];
++	struct SoceCaptureData ts_d;
++	int ret, i;
++	struct timespec64 ts;
++
++	if(num_soce_ptb == 0) return;
++
++	/* Read hardware time stamp for a received PTP frame */
++	skb_copy_from_linear_data_offset(skb,	ptp_msg_offset, ptp_header, PTP_HDR_SIZE);
++	soce_ptb_gettime(global_ptp_clock, &ts);
++	ts_d.timestamp_h = ts.tv_sec;
++	ts_d.timestamp_l = ts.tv_nsec;
++	ts_d.sequence_id = ntohs(*(u16 *)(ptp_header + PTP_SEQ_ID_OFFSET));
++	ts_d.msg_type = *(ptp_header + PTP_MSG_TYPE_OFFSET) & 0x0F;
++	ts_d.ptp_clock_id_h = ntohl(*(u32 *)(ptp_header + PTP_CLOCK_ID_OFFSET));
++	ts_d.ptp_clock_id_l = ntohl(*(u32 *)(ptp_header + PTP_CLOCK_ID_OFFSET + 4));
++	ts_d.ptp_port_id = ntohs(*(u16 *)(ptp_header + PTP_CLOCK_ID_OFFSET + 8));
++	ts_d.ptp_vlan_id = ptp_vlan_id;
++	
++	/* If there is only one PTB the index of that PTB is always 0 */
++	if(num_soce_ptb == 1)
++	{
++		retrieve_hw_timestamps(soce_ptb_local_ptrs[0]);
++		//tsq_print(&(soce_ptb_local_ptrs[0]->rx_queue));
++		if(soce_ptb_local_ptrs[0]->zynq_gmac_parser_flag == 0)
++		{
++			/* With PTB full we use tsq_find_item_1() to find the timestamp in the queue */
++			ret = tsq_find_item_1(&(soce_ptb_local_ptrs[0]->rx_queue), &ts_d);
++		}
++		else
++		{
++			/* With PTB lite we use tsq_find_item_2() to find the timestamp in the queue */
++			ret = tsq_find_item_2(&(soce_ptb_local_ptrs[0]->rx_queue), &ts_d);
++		}
++	}
++	else
++	{
++		/* Find the PTB connected to the ethernet port which have received this message */
++		for(i = 0; i < num_soce_ptb; i++)
++		{
++			if(soce_ptb_eth_addrs[i] == skb->dev->base_addr)
++				break;
++		}
++		retrieve_hw_timestamps(soce_ptb_local_ptrs[i]);
++		//tsq_print(&(soce_ptb_local_ptrs[i]->rx_queue));
++		if(i < num_soce_ptb)
++		{
++			if(soce_ptb_local_ptrs[i]->zynq_gmac_parser_flag == 0)
++			{
++				/* With PTB full we use tsq_find_item_1() to find the timestamp in the queue */
++				ret = tsq_find_item_1(&(soce_ptb_local_ptrs[i]->rx_queue), &ts_d);
++			}
++			else
++			{
++				/* With PTB lite we use tsq_find_item_2() to find the timestamp in the queue */
++				ret = tsq_find_item_2(&(soce_ptb_local_ptrs[i]->rx_queue), &ts_d);
++			}
++		}
++		else
++		{
++			DEBUG_CODE(printk("soce_ptb_rx_hwtstamp: could not find PTB index.\n");)
++			ret = -1;
++		}
++	}
++
++	if(ret < 0) {
++		DEBUG_CODE(printk("soce_ptb_rx_hwtstamp: could not retrieve timestamp from queue.\n");)
++	}
++	else {
++		sec = (u32)ts_d.timestamp_h;
++		nsec = (u32)ts_d.timestamp_l;
++		time64 = sec * NS_PER_SEC + nsec;
++		memset(shhwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
++		shhwtstamps->hwtstamp = ns_to_ktime(time64);
++	}
++}
++
++/**
++ * xemacps_tx_hwtstamp - Read tx timestamp from hw and update it to the skbuff
++ */
++void soce_ptb_tx_hwtstamp(struct sk_buff *skb,	unsigned int ptp_msg_offset, unsigned short ptp_vlan_id)
++{
++	u32 sec, nsec;
++	u64 time64;
++	struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
++	unsigned char ptp_header[PTP_HDR_SIZE];
++	struct SoceCaptureData ts_d;
++	int ret, i;
++	struct timespec64 ts;
++
++	if(num_soce_ptb == 0) return;
++
++	udelay(5);
++
++	/* Read hardware time stamp for a transmited PTP frame */
++	skb_copy_from_linear_data_offset(skb,	ptp_msg_offset, ptp_header, PTP_HDR_SIZE);
++	soce_ptb_gettime(global_ptp_clock, &ts);
++	ts_d.timestamp_h = ts.tv_sec;
++	ts_d.timestamp_l = ts.tv_nsec;
++	ts_d.sequence_id = ntohs(*(u16 *)(ptp_header + PTP_SEQ_ID_OFFSET));
++	ts_d.msg_type = *(ptp_header + PTP_MSG_TYPE_OFFSET) & 0x0F;
++	ts_d.ptp_clock_id_h = ntohl(*(u32 *)(ptp_header + PTP_CLOCK_ID_OFFSET));
++	ts_d.ptp_clock_id_l = ntohl(*(u32 *)(ptp_header + PTP_CLOCK_ID_OFFSET + 4));
++	ts_d.ptp_port_id = ntohs(*(u16 *)(ptp_header + PTP_CLOCK_ID_OFFSET + 8));
++	ts_d.ptp_vlan_id = ptp_vlan_id;
++
++	/* If there is only one PTB the index of that PTB is always 0 */
++	if(num_soce_ptb == 1)
++	{
++		retrieve_hw_timestamps(soce_ptb_local_ptrs[0]);
++		//tsq_print(&(soce_ptb_local_ptrs[0]->tx_queue));
++		if(soce_ptb_local_ptrs[0]->zynq_gmac_parser_flag == 0)
++		{
++			/* With PTB full we use tsq_find_item_1() to find the timestamp in the queue */
++			ret = tsq_find_item_1(&(soce_ptb_local_ptrs[0]->tx_queue), &ts_d);
++		}
++		else
++		{
++			/* With PTB lite we use tsq_find_item_2() to find the timestamp in the queue */
++			ret = tsq_find_item_2(&(soce_ptb_local_ptrs[0]->tx_queue), &ts_d);
++		}
++	}
++	else
++	{
++		/* Find the PTB connected to the ethernet port which have transmitted this message */
++		for(i = 0; i < num_soce_ptb; i++)
++		{
++			if(soce_ptb_eth_addrs[i] == skb->dev->base_addr)
++				break;
++		}
++		retrieve_hw_timestamps(soce_ptb_local_ptrs[i]);
++		//tsq_print(&(soce_ptb_local_ptrs[i]->tx_queue));
++		if(i < num_soce_ptb)
++		{
++			if(soce_ptb_local_ptrs[i]->zynq_gmac_parser_flag == 0)
++			{
++				/* With PTB full we use tsq_find_item_1() to find the timestamp in the queue */
++				ret = tsq_find_item_1(&(soce_ptb_local_ptrs[i]->tx_queue), &ts_d);
++			}
++			else
++			{
++				/* With PTB lite we use tsq_find_item_2() to find the timestamp in the queue */
++				ret = tsq_find_item_2(&(soce_ptb_local_ptrs[i]->tx_queue), &ts_d);
++			}
++		}
++		else
++		{
++			DEBUG_CODE(printk("soce_ptb_tx_hwtstamp: could not find PTB index.\n");)
++			ret = -1;
++		}
++	}
++
++	if(ret < 0) {
++		DEBUG_CODE(printk("soce_ptb_tx_hwtstamp: could not retrieve timestamp from queue.\n");)
++	}
++	else {
++		sec = (u32)ts_d.timestamp_h;
++		nsec = (u32)ts_d.timestamp_l;
++		time64 = sec * NS_PER_SEC + nsec;
++		memset(shhwtstamps, 0, sizeof(struct skb_shared_hwtstamps));
++		shhwtstamps->hwtstamp = ns_to_ktime(time64);
++		skb_tstamp_tx(skb, shhwtstamps);
++	}
++}
++
++/**
++ * get_phc_index - Retrieve PHC index
++ */
++int get_phc_index(struct net_device *dev)
++{
++  int i, phc_index = 0;
++  
++  for(i = 0; i < num_soce_ptb; i++)
++  {
++    if(soce_ptb_eth_addrs[i] == dev->base_addr)
++      break;
++  }
++  if(i < num_soce_ptb)
++  {
++    phc_index = soce_phc_indexes[soce_ptb_local_ptrs[i]->phc_id];
++    DEBUG_CODE(printk("get_phc_index: eth_base_addr = 0x%.08x - phc_index = %d.\n", dev->base_addr, phc_index);)
++  }
++  return phc_index;
++}
++
++/********************* INTERRUPT *********************/
++
++static irqreturn_t soce_ptb_irq(int irq, void *lp)
++{
++	retrieve_hw_timestamps((struct soce_ptb_local *) lp);
++	return IRQ_HANDLED;
++}
++
++/**************************************/
++
++#ifdef CONFIG_OF
++static struct of_device_id soce_ptb_of_match[] = {
++	{ .compatible = "xlnx,ptb-1588-18.04", },
++	{ .compatible = "xlnx,ptbl-1588-18.04", },
++	{ .compatible = "xlnx,ptb-1588-18.06", },
++	{ .compatible = "xlnx,ptbl-1588-18.06", },
++	{ .compatible = "xlnx,ptb-1588-18.11", },
++	{ .compatible = "xlnx,ptbl-1588-18.11", },
++	{ /* end of list */ },
++};
++MODULE_DEVICE_TABLE(of, soce_ptb_of_match);
++#else
++# define soce_ptb_of_match
++#endif
++
++static int soce_ptb_of_probe(struct platform_device *pdev)
++{
++	struct resource *r_irq; /* Interrupt resources */
++	struct resource *r_mem; /* IO mem resources */
++	struct device *dev = &pdev->dev;
++	const struct of_device_id *match;
++	struct soce_ptb_local *lp = NULL;
++	int rc = 0;
++	volatile u32 *p_addend;
++	volatile u32 *p_fifo_ctrl;
++	char *pch;
++	const char *eth_node_path;
++	const __be32 *dt_phc_id;
++
++	/* Get iospace for the device */
++	DEBUG_CODE(printk(KERN_DEBUG "Getting iospace for device...\n");)
++	r_mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!r_mem) {
++		dev_err(dev, "Invalid address\n");
++		return -ENODEV;
++	}
++	
++	DEBUG_CODE(printk(KERN_DEBUG "Allocating soce_ptb_local ...\n");)
++	lp = (struct soce_ptb_local *) kmalloc(sizeof(struct soce_ptb_local), GFP_KERNEL);
++	if (!lp) {
++		dev_err(dev, "Could not allocate soce_ptb device\n");
++		return -ENOMEM;
++	}
++
++	/* Reading "soce,ethernet-if" property from devicetree */
++	eth_node_path = of_get_property(dev->of_node, "soce,ethernet-ref", NULL);
++	if (eth_node_path != NULL)
++	{
++		if (num_soce_ptb < MAX_NUM_PTB)
++		{
++			struct device_node *eth_node;
++			const __be32 *reg;
++			eth_node = of_find_node_by_path(eth_node_path);
++			reg = of_get_property(eth_node, "reg", NULL);
++			soce_ptb_local_ptrs[num_soce_ptb] = lp;
++			DEBUG_CODE(printk(KERN_DEBUG "eth_base_addr[%d] =  0x%.08x.\n", num_soce_ptb, be32_to_cpu(reg[0]));)
++			soce_ptb_eth_addrs[num_soce_ptb] = be32_to_cpu(reg[0]);
++			num_soce_ptb++;
++		}
++		else
++		{
++			dev_err(dev, "The system contains more PTBs than supported\n");
++		}
++	}
++	else
++	{
++		dev_err(dev, "soce,ethernet-ref property not found, assuming only one PTB in the system\n");
++		soce_ptb_local_ptrs[0] = lp;
++		DEBUG_CODE(printk(KERN_DEBUG "eth_base_addr[0] =  0.\n");)
++		soce_ptb_eth_addrs[0] = 0;
++		num_soce_ptb = 1;
++	}
++
++	/* Determine if we are using the Zynq GMAC PTP parser */
++	match = of_match_device(soce_ptb_of_match, &pdev->dev);
++	DEBUG_CODE(printk(KERN_DEBUG "Device compatible string: %s\n", match->compatible);)
++	pch = strstr (match->compatible,"ptbl");
++	if (pch != NULL)
++	{
++		lp->zynq_gmac_parser_flag = 1;
++	}
++	else
++	{
++		lp->zynq_gmac_parser_flag = 0;
++	}
++
++	DEBUG_CODE(printk(KERN_DEBUG "Setting driver data...\n");)
++	dev_set_drvdata(dev, lp);
++	
++	lp->mem_start = r_mem->start;
++	lp->mem_end = r_mem->end;
++
++	DEBUG_CODE(printk(KERN_DEBUG "Requesting memory region...\n");)
++	if (!request_mem_region(lp->mem_start,
++				lp->mem_end - lp->mem_start + 1,
++				DRIVER_NAME)) {
++		dev_err(dev, "Could not lock memory region at %p\n",
++			(void *)lp->mem_start);
++		rc = -EBUSY;
++		goto error1;
++	}
++
++	DEBUG_CODE(printk(KERN_DEBUG "Remapping...\n");)
++	lp->base_addr = ioremap(lp->mem_start, lp->mem_end - lp->mem_start + 1);
++	if (!lp->base_addr) {
++		dev_err(dev, "Could not allocate iomem\n");
++		rc = -EIO;
++		goto error2;
++	}
++
++	DEBUG_CODE(printk(KERN_DEBUG "Allocating timestamp queue...\n");)
++	tsq_init(&(lp->rx_queue));
++	tsq_init(&(lp->tx_queue));
++	spin_lock_init(&lp->reg_lock);
++
++	/* Get IRQ for the device */
++	DEBUG_CODE(printk(KERN_DEBUG "Getting IRQ for device...\n");)
++	r_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!r_irq) {
++		dev_err(dev, "No IRQ found\n");
++    	rc = -EINVAL;
++		goto error3;
++	} 
++	lp->irq = r_irq->start;
++
++	DEBUG_CODE(printk(KERN_DEBUG "Allocating interrupt...\n");)
++	rc = request_irq(lp->irq, &soce_ptb_irq, 0, DRIVER_NAME, lp);
++	if (rc) {
++		dev_err(dev, "Could not allocate interrupt %d.\n", lp->irq);
++		goto error4;
++	}
++
++	dev_info(dev,"soce_ptb at 0x%08x mapped to 0x%08x, irq=%d\n",
++		(unsigned int __force)lp->mem_start,
++		(unsigned int __force)lp->base_addr,
++		lp->irq);
++
++	/* Reading "soce,phc-id" property from devicetree */
++	dt_phc_id = of_get_property(dev->of_node, "soce,phc-id", NULL);
++	if (dt_phc_id != NULL)
++	{
++		lp->phc_id = be32_to_cpu(dt_phc_id[0]);
++		if (lp->phc_id >= MAX_NUM_PTB) lp->phc_id = 0;
++	}
++	else
++	{
++		dev_err(dev, "soce,phc-id property not found, assuming only one PTB in the system\n");
++		lp->phc_id = 0;
++	}
++	DEBUG_CODE(printk(KERN_DEBUG "soce,phc-id = %d.\n", lp->phc_id);)
++
++	p_fifo_ctrl = lp->base_addr + CAPTURES_FIFO_COUNT;
++	if ((*p_fifo_ctrl & 0x80000000) != 0)
++	{
++		/* Register hardware with PHC subsystem */
++		lp->ptp_caps.owner = THIS_MODULE;
++		snprintf(lp->ptp_caps.name, 16, "soce ptb");
++		lp->ptp_caps.n_alarm = 0;
++		lp->ptp_caps.n_ext_ts = 0;
++		lp->ptp_caps.n_per_out = 0;
++		lp->ptp_caps.n_pins = 0;
++		lp->ptp_caps.pps = 0;
++		lp->ptp_caps.adjfine = 0;
++		lp->ptp_caps.adjfreq = soce_ptb_adjfreq;
++		lp->ptp_caps.adjtime = soce_ptb_adjtime;
++		lp->ptp_caps.gettime64 = soce_ptb_gettime;
++		lp->ptp_caps.settime64 = soce_ptb_settime;
++		lp->ptp_caps.enable = soce_ptb_enable;
++
++		p_addend = lp->base_addr + TMR_ADD;
++		lp->base_addend_val = *p_addend;
++		lp->ptp_caps.max_adj = 100000000;
++
++		DEBUG_CODE(printk(KERN_DEBUG "Registering with PHC API...\n");)
++		lp->ptp_clock = ptp_clock_register(&lp->ptp_caps, dev);
++		if (IS_ERR(lp->ptp_clock))
++		{
++			dev_err(dev, "ptp_clock_register failed\n");
++			goto error4;
++		}
++
++		/* Store PHC clock index */
++		soce_phc_indexes[lp->phc_id] = ptp_clock_index(lp->ptp_clock);
++		DEBUG_CODE(printk(KERN_DEBUG "PHC clock index assigned = %d.\n", soce_phc_indexes[lp->phc_id]);)
++
++		/* This is only used with PTB Lite that couldn't use more than one PHC */
++		if (global_ptp_clock == NULL)
++		{
++			global_ptp_clock = &lp->ptp_caps;
++		}
++		else
++		{
++			dev_info(dev, "Warning: The system contains more than one 1588 timer.\n");
++			dev_info(dev, "Warning: All PTB-Lite in the system must be associated to the first detected 1588 timer.\n");
++		}
++	}
++
++	return 0;
++
++error4:
++	free_irq(lp->irq, lp);
++error3:
++error2:
++	release_mem_region(lp->mem_start, lp->mem_end - lp->mem_start + 1);
++error1:
++	kfree(lp);
++	dev_set_drvdata(dev, NULL);
++	return rc;
++}
++
++static int soce_ptb_of_remove(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct soce_ptb_local *lp = dev_get_drvdata(dev);
++
++	DEBUG_CODE(printk(KERN_DEBUG "Unregistering with PHC API...\n");)
++	ptp_clock_unregister(lp->ptp_clock);
++
++	DEBUG_CODE(printk(KERN_DEBUG "Freeing memory...\n");)
++	free_irq(lp->irq, lp);
++	release_mem_region(lp->mem_start, lp->mem_end - lp->mem_start + 1);
++	kfree(lp);
++	dev_set_drvdata(dev, NULL);
++	soce_ptb_local_ptrs[0] = NULL;
++	return 0;
++}
++
++static struct platform_driver soce_ptb_of_driver = {
++	.driver = {
++		.name = DRIVER_NAME,
++		.owner = THIS_MODULE,
++		.of_match_table	= soce_ptb_of_match,
++	},
++	.probe		= soce_ptb_of_probe,
++	.remove		= soce_ptb_of_remove,
++};
++
++static int __init soce_ptb_init(void)
++{
++	DEBUG_CODE(printk(KERN_DEBUG "soce_ptb module loaded.\n");)
++	return platform_driver_register(&soce_ptb_of_driver);
++}
++
++static void __exit soce_ptb_exit(void)
++{
++	platform_driver_unregister(&soce_ptb_of_driver);
++	DEBUG_CODE(printk(KERN_DEBUG "soce_ptb module unloaded.\n");)
++}
++
++module_init(soce_ptb_init);
++module_exit(soce_ptb_exit);
+diff --git a/drivers/net/ethernet/cadence/soce_ptb.h b/drivers/net/ethernet/cadence/soce_ptb.h
+new file mode 100644
+index 000000000000..9893e45add66
+--- /dev/null
++++ b/drivers/net/ethernet/cadence/soce_ptb.h
+@@ -0,0 +1,55 @@
++//**************************************************************//
++//                    _______               _______             //
++//    _||_||_||_     / ____  |             / ____  |            //
++//   |          |   | /    \_|   ______   | /    \_|     _____  //
++// ==|          |== | \_____    / ____ \  | |           / ___ \ //
++// ==|          |==  \_____ \  | /    \ | | |          / /__/ / //
++// ==|          |==  _     \ | | |    | | | |     _   / _____/  //
++//   |__________|   | \____/ | | \____/ | | \____/ | / /____    //
++//     || || ||     |_______/   \______/   \______/  \_____/    //
++//                                                              //
++//                     Copyright (c) 2015                       //
++//               System on Chip engineering, S.L.               //
++//                        www.soc-e.com                         //
++//                                                              //
++//**************************************************************//
++//            Licensing information, do not remove.             //
++//                                                              //
++// This source file is free software; you can redistribute it   //
++// and/or modify it under the terms of the GNU Lesser General   //
++// Public License as published by the Free Software Foundation; //
++// either version 3 of the License, or (at your option) any     //
++// later version.                                               //
++//                                                              //
++// This source is distributed in the hope that it will be       //
++// useful, but WITHOUT ANY WARRANTY; without even the implied   //
++// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR      //
++// PURPOSE. See the GNU Lesser General Public License for more  //
++// details.                                                     //
++//                                                              //
++// You should have received a copy of the GNU Lesser General    //
++// Public License along with this program. If not, see:         //
++// <http://www.gnu.org/licenses/>.                              //
++//                                                              //
++//**************************************************************//
++//                                                              //
++// Revision list                                                //
++// Author            Date       Changes                         //
++// Sergio Salas      16/01/04   Initial version                 //
++//                                                              //
++//**************************************************************//
++//!
++//! \file: soce_ptb.h
++//! \brief: kernel module for SoC-e PTP IP cores
++//! \version: 160104
++//!
++
++#ifndef _SOCE_PTB_H_
++#define _SOCE_PTB_H_
++
++/* Exported functions */
++void soce_ptb_rx_hwtstamp(struct sk_buff *skb,	unsigned int ptp_msg_offset, unsigned short ptp_vlan_id);
++void soce_ptb_tx_hwtstamp(struct sk_buff *skb,	unsigned int ptp_msg_offset, unsigned short ptp_vlan_id);
++int get_phc_index(struct net_device *dev);
++
++#endif
+-- 
+2.17.1
+
