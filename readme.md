@@ -26,7 +26,7 @@ git submodule update --init
 cd buildroot_demo
 mkdir build
 cd build
-make -C ../buildroot O=$(pwd) BR2_EXTERNAL=.. demo_zynq_microzed_defconfig
+make -C ../buildroot O=$(pwd) BR2_EXTERNAL=.. powertime3_defconfig
 make
 ```
 
