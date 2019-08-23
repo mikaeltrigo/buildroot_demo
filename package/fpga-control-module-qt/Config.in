@@ -1,5 +1,4 @@
-config FPGA_CONTROL_MODULE_QT
+config BR2_PACKAGE_FPGA_CONTROL_MODULE_QT
 	tristate "FPGA register driver access for quantum"
-	depends on HAS_IOMEM
 	help
 	  access fpga register in a protected way for quantum (0x8000000)
