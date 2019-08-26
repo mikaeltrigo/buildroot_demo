@@ -5,7 +5,7 @@ source "$BR2_EXTERNAL_demo_PATH/package/axidma_tests/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/fpga-control-module-qt/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/fpga-control-module/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/lua-fpgacontrol/Config.in"
-
+source "$BR2_EXTERNAL_demo_PATH/package/lua-msleep/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/quantum/Config.in"
 
 source "$BR2_EXTERNAL_demo_PATH/package/lcdcontrol/Config.in"
