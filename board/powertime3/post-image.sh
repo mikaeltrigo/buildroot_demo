@@ -15,9 +15,10 @@ cp ${BOARD_DIR}/boot.bif ${BINARIES_DIR}
 (cd ${BINARIES_DIR}; ${MKBOOTIMAGE} boot.bif boot.bin)
 
 echo "Compiling the boot-script..."
-${MKIMAGE} -A arm -O linux -T script -C none \
-	 -d ${BOARD_DIR}/uboot/mmcboot-ramdisk \
+${MKIMAGE} -A arm -O linux -T script -C none -a 0 -e 0 -n "Uboot mmc start script" \
+	 -d ${BOARD_DIR}/uboot/mmcboot-rootfs \
 	 ${BINARIES_DIR}/uboot.scr
+
 
 #echo "Compiling the device-tree..."
 #${DTC} -I dts -O dtb -o ${BINARIES_DIR}/devicetree.dtb ${BOARD_DIR}/devicetree.dts
