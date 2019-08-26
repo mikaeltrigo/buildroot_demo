@@ -1,0 +1,5 @@
+config BR2_PACKAGE_LUA_MSLEEP
+	bool "lua-msleep"
+	help
+	 msleep function for lua
+

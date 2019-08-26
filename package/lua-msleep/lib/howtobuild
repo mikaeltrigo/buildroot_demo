@@ -1,0 +1,2 @@
+arm-buildroot-linux-gnueabi-gcc  -Wall -shared -fPIC -o msleep.so -I../../buildroot-rootfs/output/build/lua-5.2.4/ -llua msleep.c
+
