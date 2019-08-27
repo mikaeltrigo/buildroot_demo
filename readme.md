@@ -29,6 +29,18 @@ cd build
 make -C ../buildroot O=$(pwd) BR2_EXTERNAL=.. powertime3_defconfig
 make
 ```
+## Useful command
+
+If you change a configuration in makemenuconfig , you want to save it yous shoud run
+make savedefconfig
+To rebuild uboot only
+make uboot-rebuild
+To rebuild kernel only
+make linux-rebuild
+
+To erase the directly of uboot or kernel and start a build from scratch you can add the option --dirclean
+
+If you want to erase some overlay without doing a make clean, you should manually go to build/target and erase the diretory in question
 
 ## Create SD-card
 
