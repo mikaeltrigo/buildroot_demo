@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PWRT3LCDAPP
+	bool "pwrt3lcdapp"
+	help
+	  Application powertime3 that managed the lcd and GPS
+

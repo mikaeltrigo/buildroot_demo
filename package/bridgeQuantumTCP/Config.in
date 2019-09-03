@@ -1,0 +1,5 @@
+config BR2_PACKAGE_BRIDGEQUANTUMTCP
+	bool "bridgequantumTCP"
+	help
+	  TCP Bridge app for the quantum
+

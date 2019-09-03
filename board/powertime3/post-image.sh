@@ -17,12 +17,12 @@ cp ${BOARD_DIR}/boot.bif ${BINARIES_DIR}
 echo "Compiling the boot-script for mmcboot-rootfs ..."
 ${MKIMAGE} -A arm -O linux -T script -C none -a 0 -e 0 -n "Uboot mmc start script" \
 	 -d ${BOARD_DIR}/uboot/mmcboot-rootfs \
-	 ${BINARIES_DIR}/ubootmmcboot-rootfs.scr
+	 ${BINARIES_DIR}/uboot.scr
 
-echo "Compiling the boot-script..."
+echo "Compiling the boot-script for ramdisk..."
 ${MKIMAGE} -A arm -O linux -T script -C none \
 	 -d ${BOARD_DIR}/uboot/mmcboot-ramdisk \
-	 ${BINARIES_DIR}/uboot.scr
+	 ${BINARIES_DIR}/uboot-ramdisk.scr
 
 
 #echo "Compiling the device-tree..."

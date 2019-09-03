@@ -1,11 +1,11 @@
 ################################################################################
 #
-# quantum
+# pwrt3 lcd app
 #
 ################################################################################
 
-QUANTUM_VERSION = e0acdece5325a6c43a272a59f2bf0fd362a1a9e0
-QUANTUM_SITE_METHOD = git
-QUANTUM_SITE = 	https://github.com/mikaeltrigo/Quantum.git
+PWRT3LCDAPP_VERSION = 5aee324e30ac6137308a5067153a7fe7021fe9e1
+PWRT3LCDAPP_SITE_METHOD = git
+PWRT3LCDAPP_SITE = 	https://github.com/mikaeltrigo/pwrt3_lcd_app.git
 
 $(eval $(cmake-package))
