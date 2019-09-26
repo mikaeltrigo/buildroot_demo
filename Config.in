@@ -10,6 +10,7 @@ source "$BR2_EXTERNAL_demo_PATH/package/quantum/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/bridgeQuantumTCP/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/pwrt3lcdapp/Config.in"
 source "$BR2_EXTERNAL_demo_PATH/package/lcdcontrol/Config.in"
+source "$BR2_EXTERNAL_demo_PATH/package/soce_ptp/Config.in"
 
 source "$BR2_EXTERNAL_demo_PATH/package/linuxptpv2.0/Config.in"
 

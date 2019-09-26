@@ -1,0 +1,16 @@
+#!/bin/sh
+
+mkfifo /tmp/rxQuantum
+mkfifo /tmp/txQuantum
+mkfifo /tmp/printerQuantum
+mkfifo /tmp/gpsQuantum
+mkfifo /tmp/RT1
+
+date >> logQuantum.txt
+Quantum >> logQuantum.txt  &
+nohup bridgeQuantumTCP &
+nohup pwrt3lcdapp &
+
+
+
+

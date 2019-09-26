@@ -1,0 +1,5 @@
+config BR2_PACKAGE_SOCE_PTP
+	bool "soce_ptp"
+	help
+	  SOCE_PTP software by SOC-E with cmake
+
