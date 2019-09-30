@@ -1,0 +1,31 @@
+diff --git a/makefile b/makefile
+index 7950589..66e2587 100644
+--- a/makefile
++++ b/makefile
+@@ -78,16 +78,16 @@ install: $(PRG)
+ 	#	[ -f $$x ] && install -p -m 644 -t $(DESTDIR)$(man8dir) $$x ; \
+ 	#done
+ 	# Added to install service and config files
+-	install -o root -g root -m 0644 services/phc2sys.service /lib/systemd/system
+-	install -o root -g root -m 0644 services/ptp4l.service /lib/systemd/system
+-	install -o root -g root -m 0644 services/timemaster.service /lib/systemd/system
+-	install -d -o root -g root -m 0755 /etc/linuxptp
+-	install -o root -g root -m 0644 configs/ptp4l.conf /etc/linuxptp
+-	install -o root -g root -m 0644 configs/phc2sys.conf /etc/linuxptp
+-	install -o root -g root -m 0644 configs/timemaster.conf /etc/linuxptp
+-	systemctl daemon-reload
+-	systemctl disable ptp4l
+-	systemctl disable phc2sys
++	#install -o root -g root -m 0644 services/phc2sys.service /lib/systemd/system
++	#install -o root -g root -m 0644 services/ptp4l.service /lib/systemd/system
++	#install -o root -g root -m 0644 services/timemaster.service /lib/systemd/system
++	#install -d -o root -g root -m 0755 /etc/linuxptp
++	#install -o root -g root -m 0644 configs/ptp4l.conf /etc/linuxptp
++	#install -o root -g root -m 0644 configs/phc2sys.conf /etc/linuxptp
++	#install -o root -g root -m 0644 configs/timemaster.conf /etc/linuxptp
++	#systemctl daemon-reload
++	#systemctl disable ptp4l
++	#systemctl disable phc2sys
+ 
+ clean:
+ 	rm -f $(OBJECTS) $(DEPEND) $(PRG)
