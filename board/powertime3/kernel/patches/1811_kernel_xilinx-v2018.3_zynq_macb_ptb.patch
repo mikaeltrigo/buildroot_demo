@@ -386,7 +386,7 @@ index 000000000000..5876fb7833a9
 +
 +#include "soce_ptb.h"
 +
-+//#define DEBUG_MODE
++#define DEBUG_MODE
 +#ifdef DEBUG_MODE
 +#define DEBUG_CODE(argument) argument
 +#else
