@@ -9,7 +9,7 @@ mkfifo /tmp/RT1
 date >> logQuantum.txt
 Quantum >> logQuantum.txt  &
 #nohup bridgeQuantumTCP &
-nohup pwrt3lcdapp 
+pwrt3lcdapp 
 
 
 
