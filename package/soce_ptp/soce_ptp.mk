@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-SOCE_PTP_VERSION = 1.90
+SOCE_PTP_VERSION = 1.9
 SOCE_PTP_SITE_METHOD = git
 SOCE_PTP_SITE = https://github.com/mikaeltrigo/soce_ptp.git
 SOCE_PTP_LICENSE = GPL-2.0+
