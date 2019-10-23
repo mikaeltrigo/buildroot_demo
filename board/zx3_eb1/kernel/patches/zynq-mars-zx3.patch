@@ -1,0 +1,25 @@
+diff --git a/arch/arm/boot/dts/zynq-mars-zx3.dts b/arch/arm/boot/dts/zynq-mars-zx3.dts
+index ffe11dc..37495e1 100644
+--- a/arch/arm/boot/dts/zynq-mars-zx3.dts
++++ b/arch/arm/boot/dts/zynq-mars-zx3.dts
+@@ -13,11 +13,19 @@
+  */
+ /dts-v1/;
+ /include/ "zynq-7000.dtsi"
+-/include/ "zynq-enclustra-zx-common.dtsi"
++/include/ "zynq-enclustra-zx-common-zx3.dtsi"
+ /include/ "zynq-enclustra-qspi-parts.dtsi"
+ 
+ / {
+ 	model = "Enclustra Mars ZX3 SOM";
++       ptb_1588_0: ptb_1588@43C100000 {
++               compatible = "xlnx,ptbl-1588-18.11";
++               interrupt-parent = <&intc>;
++               interrupts = <0 29 4>;
++               reg = <0x43C10000 0x10000>;
++               soce,ethernet-ref = &gem0;
++       };
++
+ };
+ 
+ &uart0 {

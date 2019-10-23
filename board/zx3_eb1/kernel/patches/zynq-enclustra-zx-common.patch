@@ -1,0 +1,54 @@
+diff --git a/arch/arm/boot/dts/zynq-enclustra-zx-common.dtsi b/arch/arm/boot/dts/zynq-enclustra-zx-common.dtsi
+index 7965568..41730bd 100644
+--- a/arch/arm/boot/dts/zynq-enclustra-zx-common.dtsi
++++ b/arch/arm/boot/dts/zynq-enclustra-zx-common.dtsi
+@@ -15,26 +15,30 @@
+ 		view-port = <0x0170>;
+ 		drv-vbus;
+ 	};
+-	mdio {
+-                compatible = "cdns,macb-mdio";
+-                reg = <0xe000b000 0x1000>;
+-                clocks = <&clkc 30>, <&clkc 30>, <&clkc 13>;
+-                clock-names = "pclk", "hclk", "tx_clk";
+-                #address-cells = <1>;
+-                #size-cells = <0>;
+-                phy3: ethernet-phy@3 {
+-                        reg = <3>;
+-                };
+-        };
+ 
+ };
+ 
+ &gem0 {
+-	status = "okay";
+-	phy-mode = "rgmii-id";
+ 	phy-handle = <&phy3>;
+-};
++  	gmii2rgmii-phy-handle = <&gmii_to_rgmii_0>;
++	phy-mode = "gmii";
++	status = "okay";
++    ps7_ethernet_0_mdio: mdio {
++        #address-cells = <1>;
++        #size-cells = <0>;
++		
++        phy3: ethernet-phy@3 {
++				device_type = "ethernet-phy";
++                reg = <3>;
++        };
++		gmiitorgmii: gmiitorgmii@8 {
++			compatible = "xlnx,gmii-to-rgmii-1.0";
++			reg = <8>;
++			phy-handle = <&phy3>;
++		};
++	};
+ 
++};
+ &sdhci0 {
+ 	status = "okay";
+ 	broken-cd = <0x1>;
+@@ -61,3 +65,4 @@
+ 		reg = <0x6f>;
+ 	};
+ };
++
