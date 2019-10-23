@@ -36,7 +36,7 @@ index 7965568..41730bd 100644
 +				device_type = "ethernet-phy";
 +                reg = <3>;
 +        };
-+		gmiitorgmii: gmiitorgmii@8 {
++		gmii_to_rgmii_0: phy@8  {
 +			compatible = "xlnx,gmii-to-rgmii-1.0";
 +			reg = <8>;
 +			phy-handle = <&phy3>;

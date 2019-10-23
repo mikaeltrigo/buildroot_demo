@@ -6,11 +6,11 @@ index ffe11dc..d78af34 100644
  
  / {
  	model = "Enclustra Mars ZX3 SOM";
-+       ptb_1588_0: ptb_1588@43C100000 {
++       ptb_1588_0: ptb_1588@43C000000 {
 +               compatible = "xlnx,ptbl-1588-18.11";
 +               interrupt-parent = <&intc>;
 +               interrupts = <0 29 4>;
-+               reg = <0x43C10000 0x10000>;
++               reg = <0x43C00000 0x10000>;
 +               soce,ethernet-ref = &gem0;
 +       };
 +
