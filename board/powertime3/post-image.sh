@@ -25,9 +25,15 @@ ${MKIMAGE} -A arm -O linux -T script -C none \
 	 ${BINARIES_DIR}/uboot-ramdisk.scr
 
 
-#echo "Compiling the device-tree..."
+echo "copying device-tree..."
 #${DTC} -I dts -O dtb -o ${BINARIES_DIR}/devicetree.dtb ${BOARD_DIR}/devicetree.dts
-cp ${BOARD_DIR}/pre-built/devicetree.dtb ${BINARIES_DIR}/devicetree.dtb
+#cp ${BOARD_DIR}/pre-built/devicetree.dtb ${BINARIES_DIR}/devicetree.dtb
+
+FIRST_DT=$(sed -n \
+           's/^BR2_LINUX_KERNEL_INTREE_DTS_NAME="\([a-z0-9\-]*\).*"$/\1/p' \
+           ${BR2_CONFIG})
+
+[ -z "${FIRST_DT}" ] || ln -fs ${FIRST_DT}.dtb ${BINARIES_DIR}/devicetree.dtb
 
 echo "Creating the sd-card image..."
 support/scripts/genimage.sh -c ${BOARD_DIR}/genimage.cfg

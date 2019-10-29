@@ -18,7 +18,7 @@ local cmd = { -- command names, will be check by the debug_cli
 local help = {
     desc = "Control the DAC that is control voltage of +0MHz generator",
     args = {
-              {"rws", "w = 0  write , 1 = read,2= selext 10MHz local 3= select GPS 10MHz"},
+              {"rws", "w = 0  write , 1 = read,2= selext 10MHz local 3= select GPS 10MHz, 4 ext clock on GPS OSC_EN still enable"},
               {"cmd", "regisgter number "},
 			  {"data", "data to write if rw=0"},
               --...
@@ -37,7 +37,7 @@ local function exec(args)
 	local returndata
 	assert(args and #args > 0, "ERROR: too few argument arguments")
     local rwc  = assert(tonumber(args[1])  , "ERROR: invalid rwc " .. tostring(args[1]))
-    assert(rwc >= 0 and rwc <= 3, "ERROR:  invalid addr number ")	
+    assert(rwc >= 0 and rwc <= 4, "ERROR:  invalid addr number ")	
    
    
 	if rwc == 0 then
@@ -56,6 +56,9 @@ local function exec(args)
 	elseif rwc == 3 then
 		errcnt = powertimeFunc.clk_source_ctrl(1)
 		LOG_Info(string.format("   clk_source_ctrl select 10MHZ GPS function return  errcnt %d ", errcnt))	
+	elseif rwc == 4 then
+		errcnt = powertimeFunc.clk_source_ctrl(2)
+		LOG_Info(string.format("   clk_source_ctrl select 10MHZ  EXT clocl for debug return  errcnt %d ", errcnt))		
 	end 
 
 end

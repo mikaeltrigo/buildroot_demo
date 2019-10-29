@@ -255,19 +255,32 @@ function InitPowerTime(luaVersion)
     else
         LOG_Info("FPGA Version: " .. string.format("0x%04X", ReadArray[1]))    
     end
-	  print ("let's enable QUANTUM for debug in InitPowerTime: ")
-	  powertimeFunc.expander_init()
-	  msleep(10)
-	  errcnt = powertimeFunc.chron_in_ctrl(1)
-	  print ("Enable Rs232/PPS ")
-	  errcnt = powertimeFunc.mux_in_serial_ctrl(1,0)
-	  print ("Enable Autoread keyboard ")
-	  errcnt = powertimeFunc.keyboardautoread(1) 
-	  -- set to approx 10MHz
-	  errcnt, returndata = powertimeFunc.clk_ctrl_dac_wr(1,0x4BB9)
-	  
-	  
-	  
+		print ("let's enable QUANTUM for debug in InitPowerTime: ")
+		powertimeFunc.expander_init()
+		msleep(10)
+		errcnt = powertimeFunc.chron_in_ctrl(1)
+		print ("Enable Rs232/PPS ")
+		errcnt = powertimeFunc.mux_in_serial_ctrl(1,0)
+		print ("Enable Autoread keyboard ")
+		errcnt = powertimeFunc.keyboardautoread(0) 
+		-- set to approx 10MHz
+		
+		errcnt = powertimeFunc.expander_init(1) 	
+		msleep(100)
+		errcnt = powertimeFunc.keyboardautoread(1) 
+		
+
+		extclock = false 
+
+		if extclock  then
+			print ("EXT clock use for test") 
+			errcnt = powertimeFunc.clk_source_ctrl(2)
+			errcnt, returndata = powertimeFunc.clk_ctrl_dac_wr(1,0x5469)
+		else
+
+		errcnt, returndata = powertimeFunc.clk_ctrl_dac_wr(1,0x4BB9)
+		end
+
     return errorFlag
 end
 

@@ -105,6 +105,30 @@ local function battery_write_reg(regaddr,txvalue)
 	return errCnt
 end
 
+
+local function battery_read_adc()
+	local errCnt = 0 
+	local readArray = {}
+	local returnvalue
+	local txdata
+	local battery_mvolt
+	errcnt,returndata = powertimeFunc.battery_read_reg(0x2)--read ADC register
+	returndata = band(returndata,0x3f) --celar bit 6 and 7  of REG02
+	txdata = bor(returndata,0x40) --enable auto conversion
+	errcnt = powertimeFunc.battery_write_reg(0x2,txdata) -- Start ADC Conversion (– One shot ADC conversion )
+	msleep(100)
+	errcnt,returndata = powertimeFunc.battery_read_reg(0xE)--read ADC register
+	returndata = band(returndata,0x7f) --celar bit7
+	battery_mvolt= returndata * 20  + 2304 --base is 2.304V
+
+	
+	errcnt = powertimeFunc.battery_write_reg(0x2,band(txdata,0x3f)) -- disable auto conversion
+
+	
+	return errCnt,battery_mvolt
+end
+
+
 ---readout expander
 -- @within system function
 -- @param id  [0...1] 0: expander with all enable signal , 1 : expander with readout and keyboard
@@ -275,8 +299,10 @@ local function clk_source_ctrl(source)
 	errCnt,localA, localB =expander0_readbacklocal()
 	if source == 0 then
 		errCnt= expander_writevalue(0,bor(localA,0x04), band(localB,0xFD)) -- enable OSC_EN bit ( GPA2) and  and 0 to CLKSRC_CTRL GPB1
-	else
+	elseif source == 1 then
 		errCnt= expander_writevalue(0,band(localA,0xFB), bor(localB,0x02)) -- disable OSC_EN bit ( GPA2) and  and eanble to CLKSRC_CTRL GPB1
+	else
+		errCnt= expander_writevalue(0,bor(localA,0x04), bor(localB,0x02)) -- disable OSC_EN bit ( GPA2) and  and eanble to CLKSRC_CTRL GPB1
 	end
 
 	return errCnt
@@ -595,7 +621,8 @@ powertimeFunc = {
   ext_usbcharge_ctrl = ext_usbcharge_ctrl ,
   ext_usbmasstroage_ctrl= ext_usbmasstroage_ctrl,
   ext_poe_ctrl = ext_poe_ctrl,
-  lcdcontrol =lcdcontrol
+  lcdcontrol =lcdcontrol,
+  battery_read_adc= battery_read_adc
   
 }
 
