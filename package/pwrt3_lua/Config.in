@@ -1,0 +1,5 @@
+config BR2_PACKAGE_PWRT3_LUA
+	bool "Lua scripts"
+	help
+	  Installs the Lua scripts
+
