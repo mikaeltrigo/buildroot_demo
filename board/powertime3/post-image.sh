@@ -26,14 +26,14 @@ ${MKIMAGE} -A arm -O linux -T script -C none \
 
 
 echo "copying device-tree..."
-#${DTC} -I dts -O dtb -o ${BINARIES_DIR}/devicetree.dtb ${BOARD_DIR}/devicetree.dts
-#cp ${BOARD_DIR}/pre-built/devicetree.dtb ${BINARIES_DIR}/devicetree.dtb
+${DTC} -I dts -O dtb -o ${BINARIES_DIR}/devicetree.dtb ${BOARD_DIR}/kernel/dts/zynq-mars-zx2.dts
+#cp ${BOARD_DIR}/kernel/dts/dts/zynq-mars-zx2.dts ${BINARIES_DIR}/devicetree.dtb
 
-FIRST_DT=$(sed -n \
-           's/^BR2_LINUX_KERNEL_INTREE_DTS_NAME="\([a-z0-9\-]*\).*"$/\1/p' \
-           ${BR2_CONFIG})
+#FIRST_DT=$(sed -n \
+#           's/^BR2_LINUX_KERNEL_INTREE_DTS_NAME="\([a-z0-9\-]*\).*"$/\1/p' \
+#           ${BR2_CONFIG})
 
-[ -z "${FIRST_DT}" ] || ln -fs ${FIRST_DT}.dtb ${BINARIES_DIR}/devicetree.dtb
+#[ -z "${FIRST_DT}" ] || ln -fs ${FIRST_DT}.dtb ${BINARIES_DIR}/devicetree.dtb
 
 echo "Creating the sd-card image..."
 support/scripts/genimage.sh -c ${BOARD_DIR}/genimage.cfg

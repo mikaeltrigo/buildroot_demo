@@ -1,0 +1,95 @@
+/ {
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x20000000>;
+	};
+
+	chosen {
+		linux,stdout-path = "/amba/serial@e0000000";
+	};
+
+	usb_phy0: phy0 {
+		compatible = "ulpi-phy";
+		#phy-cells = <0>;
+		reg = <0xe0002000 0x1000>;
+		view-port = <0x0170>;
+		drv-vbus;
+	};
+
+
+};
+
+
+
+&gem0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&phy3>;
+	ps7_ethernet_0_mdio: mdio {
+        	#address-cells = <1>;
+        	#size-cells = <0>;
+		phy3: ethernet-phy@3 {
+			device_type = "ethernet-phy";
+      			reg = <3>;
+     		};
+	};
+
+};
+&gem1 {
+	phy-handle = <&phy0>;
+  	gmii2rgmii-phy-handle = <&gmii_to_rgmii_0>;
+	phy-mode = "gmii";
+	status = "okay";
+	ps7_ethernet_1_mdio: mdio {
+        	#address-cells = <1>;
+        	#size-cells = <0>;	
+		phy0: phy@0 {
+			device_type = "ethernet-phy";
+			reg = <0>;
+        	};
+        gmii_to_rgmii_0: phy@8 {
+            compatible = "xlnx,gmii-to-rgmii-1.0";
+            reg = <8>;
+            phy-handle = <&phy0>;
+        };
+    };
+};
+
+
+
+
+&sdhci0 {
+	status = "okay";
+	broken-cd = <0x1>;
+	wp-inverted = <0x1>;
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+	usb-phy = <&usb_phy0>;
+};
+
+&i2c0 {
+	status = "okay";
+	/* Both RTCs disabled by default, choose one */
+	pcf85063: pcf85063@51 {
+		status = "disabled";
+		compatible = "nxp,pcf85063";
+		reg = <0x51>;
+	};
+	isl12022: isl12022@68 {
+		status = "disabled";
+		compatible = "isil,isl12022";
+		reg = <0x6f>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	batterycharger@64 {
+		status = "oky";
+		compatible = "at,24c64";
+		reg = <0x64>;
+	};
+};
