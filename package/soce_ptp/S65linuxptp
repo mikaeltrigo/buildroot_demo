@@ -2,12 +2,19 @@
 #
 # Start linuxptp
 #
-
+# start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid  -x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/linuxptp.cfg
+#/usr/sbin/ptp4l -f /etc/linuxptp.cfg
 start() {
 	printf "Starting linuxptp daemon: "
-	start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
-		-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/linuxptp.cfg
-	[ $? = 0 ] && echo "OK" || echo "FAIL"
+	echo 8 > /proc/sys/kernel/printk
+	printf "echo 8 > /proc/sys/kernel/printk DONE "
+	#start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
+	#	-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/linuxptp.cfg
+	#start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
+	#	-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/soce_service/ptp4l.conf
+		
+		
+	#[ $? = 0 ] && echo "OK" || echo "FAIL"
 
 	#printf "Starting linuxptp system clock synchronization: "
 	#start-stop-daemon -S -b -q -p /var/run/linuxptp-phc2sys.pid \
@@ -44,3 +51,4 @@ case "$1" in
 esac
 
 exit $?
+

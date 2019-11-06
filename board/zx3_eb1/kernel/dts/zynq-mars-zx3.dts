@@ -1,0 +1,61 @@
+/*
+ *  Copyright (C) 2011 - 2014 Xilinx
+ *  Copyright (C) 2012 National Instruments Corp.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/dts-v1/;
+/include/ "zynq-7000.dtsi"
+/include/ "zynq-enclustra-zx-common.dtsi"
+/include/ "zynq-enclustra-qspi-parts.dtsi"
+
+/ {
+	model = "Enclustra Mars ZX2 SOM";
+
+	ptb_1588_0: ptb_1588@43c00000 {
+		    clock-names = "s_axi_aclk";
+		    clocks = <&clkc 15>;
+		    compatible = "xlnx,ptb-1588-18.11";
+		    interrupt-names = "ptp_interrupt";
+		    interrupt-parent = <&intc>;
+		    interrupts = <0 0x1D 4>;
+		    reg = <0x43c00000 0x10000>;
+		    xlnx,edge-type-event-0 = <0x1>;
+		    xlnx,edge-type-event-1 = <0x1>;
+		    xlnx,edge-type-event-2 = <0x1>;
+		    xlnx,edge-type-event-3 = <0x1>;
+		    xlnx,enable-alarm-detect = "false";
+		    xlnx,enable-event-timestamping = "false";
+		    xlnx,fpga-family = <0x0>;
+		    xlnx,frame-format = <0x0>;
+		    xlnx,interface-speed = <0x0>;
+		    xlnx,interface-type = <0x1>;
+		    xlnx,num-alarms = <0x1>;
+		    xlnx,num-event-timestamping = <0x1>;
+		    xlnx,passthrough-mode = "false";
+		    xlnx,pulse-width = <0xbebc200>;
+		    xlnx,system-freq = <0x5f5e100>;
+		    xlnx,timer-internal = <0x1>;
+		    xlnx,use-pps-out = "true";
+		    xlnx,use-timer-out = "false";
+		    xlnx,user-pulse-enable = "false";
+		    xlnx,user-pulse-sel = <0x1>;
+		    xlnx,user-pulse-width = <0x7d0>;
+		    soce,ethernet-ref = &gem0;
+		};
+};
+&uart0 {
+	status = "okay";
+};
+
+&isl12022 {
+	status = "okay";
+};
+
