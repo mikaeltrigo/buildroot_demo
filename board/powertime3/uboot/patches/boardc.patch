@@ -1,5 +1,5 @@
 diff --git a/board/xilinx/zynq/board.c b/board/xilinx/zynq/board.c
-index e7fcf88..8a0685b 100644
+index e7fcf88..87dde67 100644
 --- a/board/xilinx/zynq/board.c
 +++ b/board/xilinx/zynq/board.c
 @@ -21,8 +21,18 @@
@@ -33,14 +33,14 @@ index e7fcf88..8a0685b 100644
 +{
 +	puts("Enable phy extern\n");
 +	unsigned gpio;
-+	gpio = 50;
++	/*gpio = 50;
 +	gpio_request(gpio, "cmd_gpio");
 +	gpio_direction_output(gpio, 1);
 +	udelay(50000);
 +	gpio_direction_output(gpio, 0);
 +	udelay(50000);
 +	gpio_direction_output(gpio, 1);
-+	udelay(50000);
++	udelay(50000);*/
 +	return;
 +}
 +
@@ -65,4 +65,13 @@ index e7fcf88..8a0685b 100644
 +
  	return 0;
  }
+ 
+@@ -438,6 +476,8 @@ int board_phy_config(struct phy_device *phydev)
+ 				   MII_KSZ9031_EXT_RGMII_CLOCK_SKEW,
+ 				   MII_KSZ9031_MOD_DATA_NO_POST_INC,
+ 				   ENCLUSTRA_ZX_CLK_SKEW_VAL);
++	puts("SWT : Disable PHY on Zynq Modules\n");	
++	phy_write(phydev, MDIO_DEVAD_NONE, 0x0, 0x1940);
+ 
+ 	phydev->drv->config(phydev);
  

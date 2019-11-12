@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Start linuxptp
+#
+
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+DESC="Description du service"
+NAMEQUANTUM=Quantum
+NAMELCD=pwrt3lcdapp
+DAEMON_Q=/usr/bin/$NAMEQUANTUM
+DAEMON_LCD=/usr/bin/$NAMELCD
+DAEMON_STARTER_Q=/etc/init.d/pwrt3starter_quantum.sh
+DAEMON_STARTER_LCD=/etc/init.d/pwrt3starter_lcdapp.sh
+DAEMON_ARGS=""
+PIDFILE_Q=/var/run/$NAMELCD.pid
+PIDFILE_LCD=/var/run/$NAMEQUANTUM.pid
+
+
+start() {
+	printf "Startup system with Quantum  \n"
+
+	start-stop-daemon --start --quiet --background  --make-pidfile --pidfile $PIDFILE_Q  --exec $DAEMON_STARTER_Q
+	printf "Startup system with PWRT3_LCD_APP \n"
+	start-stop-daemon --start --quiet --background  --make-pidfile --pidfile $PIDFILE_LCD  --exec $DAEMON_STARTER_LCD
+
+}
+
+stop() {
+	printf "Stopping quantum app deamon  "
+	start-stop-daemon -K -q -p $PIDFILE_Q \
+		-x  $DAEMON_Q
+	echo "OK"
+
+	printf "Stopping LCD app daemon: "
+	start-stop-daemon -K -q -p $PIDFILE_LCD \
+		-x  $DAEMON_LCD
+	echo "OK"
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	stop
+	start
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac
+
+exit $?
+
