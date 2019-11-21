@@ -1,0 +1,15 @@
+diff --git a/makefile b/makefile
+index 66e2587..d22422d 100644
+--- a/makefile
++++ b/makefile
+@@ -33,8 +33,8 @@ OBJECTS	= $(OBJ) hwstamp_ctl.o nsm.o phc2sys.o phc_ctl.o pmc.o pmc_common.o \
+ SRC	= $(OBJECTS:.o=.c)
+ DEPEND	= $(OBJECTS:.o=.d)
+ srcdir	:= $(dir $(lastword $(MAKEFILE_LIST)))
+-incdefs := $(shell $(srcdir)/incdefs.sh)
+-version := $(shell $(srcdir)/version.sh $(srcdir))
++incdefs := $(shell . $(srcdir)/incdefs.sh)
++version := $(shell . $(srcdir)/version.sh $(srcdir))
+ VPATH	= $(srcdir)
+ 
+ prefix	= /usr
