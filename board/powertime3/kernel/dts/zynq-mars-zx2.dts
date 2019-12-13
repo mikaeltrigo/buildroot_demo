@@ -20,35 +20,35 @@
 	model = "Enclustra Mars ZX2 SOM";
 
 	ptb_1588_0: ptb_1588@43c10000 {
-		    clock-names = "s_axi_aclk";
-		    clocks = <&clkc 15>;
-		    compatible = "xlnx,ptb-1588-18.11";
-		    interrupt-names = "ptp_interrupt";
-		    interrupt-parent = <&intc>;
-		    interrupts = <0 0x1D 4>;
-		    reg = <0x43c10000 0x10000>;
-		    xlnx,edge-type-event-0 = <0x1>;
-		    xlnx,edge-type-event-1 = <0x1>;
-		    xlnx,edge-type-event-2 = <0x1>;
-		    xlnx,edge-type-event-3 = <0x1>;
-		    xlnx,enable-alarm-detect = "false";
-		    xlnx,enable-event-timestamping = "false";
-		    xlnx,fpga-family = <0x0>;
-		    xlnx,frame-format = <0x0>;
-		    xlnx,interface-speed = <0x0>;
-		    xlnx,interface-type = <0x1>;
-		    xlnx,num-alarms = <0x1>;
-		    xlnx,num-event-timestamping = <0x1>;
-		    xlnx,passthrough-mode = "false";
-		    xlnx,pulse-width = <0xbebc200>;
-		    xlnx,system-freq = <0x5f5e100>;
-		    xlnx,timer-internal = <0x1>;
-		    xlnx,use-pps-out = "true";
-		    xlnx,use-timer-out = "false";
-		    xlnx,user-pulse-enable = "false";
-		    xlnx,user-pulse-sel = <0x1>;
-		    xlnx,user-pulse-width = <0x7d0>;
-		    soce,ethernet-ref = &gem1;
+			clock-names = "s_axi_aclk";
+			clocks = <&clkc 15>;
+			compatible = "xlnx,ptb-1588-18.11";
+			interrupt-names = "ptp_interrupt";
+			interrupt-parent = <&intc>;
+			interrupts = <0 29 4>;
+			reg = <0x43c10000 0x10000>;
+			xlnx,edge-type-event-0 = <0x1>;
+			xlnx,edge-type-event-1 = <0x1>;
+			xlnx,edge-type-event-2 = <0x1>;
+			xlnx,edge-type-event-3 = <0x1>;
+			xlnx,enable-alarm-detect = "false";
+			xlnx,enable-event-timestamping = "false";
+			xlnx,fpga-family = <0x0>;
+			xlnx,frame-format = <0x0>;
+			xlnx,interface-speed = <0x0>;
+			xlnx,interface-type = <0x1>;
+			xlnx,num-alarms = <0x1>;
+			xlnx,num-event-timestamping = <0x1>;
+			xlnx,passthrough-mode = "false";
+			xlnx,pulse-width = <0x5f5e100>;
+			xlnx,system-freq = <0x7735940>;
+			xlnx,timer-internal = <0x1>;
+			xlnx,use-pps-out = "true";
+			xlnx,use-timer-out = "false";
+			xlnx,user-pulse-enable = "false";
+			xlnx,user-pulse-sel = <0x1>;
+		  	xlnx,user-pulse-width = <0x7d0>;
+		    	soce,ethernet-ref = &gem1;
 		};
 	interruptIRQ_DBG_1@0{
 		compatible="generic-uio";
@@ -184,8 +184,5 @@
 		reg =<0>; //chipselect 0
 		spi-max-frequency= <2000000>;
 	};
-};
-&pcf85063 {
-	status = "okay";
 };
 

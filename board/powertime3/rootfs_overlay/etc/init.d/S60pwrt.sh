@@ -17,9 +17,8 @@ start_lua_script()
 
 case $1 in
 start)
-    #Eval is necessary because of a strange problem
-    start_lua_script $ECS $ECS_PID $ECS_OPTS
-    ;;
+    	start_lua_script $ECS $ECS_PID $ECS_OPTS
+    	;;
 
 stop)
     start-stop-daemon -K -p $ECS_PID
