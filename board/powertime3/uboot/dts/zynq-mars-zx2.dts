@@ -67,7 +67,6 @@
 
 };
 
-
 &usb0 {
 	status = "okay";
 };
