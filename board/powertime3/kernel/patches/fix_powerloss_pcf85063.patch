@@ -1,0 +1,15 @@
+diff --git a/drivers/rtc/rtc-pcf85063.c b/drivers/rtc/rtc-pcf85063.c
+index a06dff9..6d8eaa8 100644
+--- a/drivers/rtc/rtc-pcf85063.c
++++ b/drivers/rtc/rtc-pcf85063.c
+@@ -101,8 +101,8 @@ static int pcf85063_get_datetime(struct i2c_client *client, struct rtc_time *tm)
+ 
+ 	/* if the clock has lost its power it makes no sense to use its time */
+ 	if (regs[0] & PCF85063_REG_SC_OS) {
+-		dev_warn(&client->dev, "Power loss detected, invalid time\n");
+-		return -EINVAL;
++		dev_warn(&client->dev, "Power loss detected, Double check if time makes sense\n");
++		//return -EINVAL;
+ 	}
+ 
+ 	tm->tm_sec = bcd2bin(regs[0] & 0x7F);

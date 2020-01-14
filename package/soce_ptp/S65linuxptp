@@ -6,10 +6,15 @@
 #/usr/sbin/ptp4l -f /etc/linuxptp.cfg
 start() {
 	printf "Starting linuxptp daemon: "
-	echo 8 > /proc/sys/kernel/printk
-	printf "echo 8 > /proc/sys/kernel/printk DONE "
-	#start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
-	#	-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/linuxptp.cfg
+	#echo 8 > /proc/sys/kernel/printk
+	#printf "echo 8 > /proc/sys/kernel/printk DONE "
+	
+	start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
+		-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/linuxptp.cfg
+	#will use the system time at startup	
+	phc_ctl /dev/ptp0 set 
+	#other possibility
+	#/usr/sbin/phc2sys -a -r -r -l 5 -F 0.001 -S 0.001 
 	#start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
 	#	-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/soce_service/ptp4l.conf
 		

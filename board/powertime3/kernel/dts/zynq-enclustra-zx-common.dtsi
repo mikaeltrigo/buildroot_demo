@@ -87,9 +87,14 @@
 
 &i2c1 {
 	status = "okay";
-	batterycharger@64 {
-		status = "oky";
+	batterycharger: batterycharger@64 {
+		status = "okay";
 		compatible = "at,24c64";
 		reg = <0x64>;
+	};
+	rv3029: rv3029@68 {
+		status = "disable";
+		compatible = "microcrystal,rv3029";
+		reg = <0x52>;
 	};
 };
