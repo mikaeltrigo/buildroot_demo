@@ -1,15 +1,25 @@
 diff --git a/board/xilinx/zynq/board.c b/board/xilinx/zynq/board.c
-index e7fcf88..87dde67 100644
+index e865b54b8c..d5e4372c2e 100644
 --- a/board/xilinx/zynq/board.c
 +++ b/board/xilinx/zynq/board.c
-@@ -21,8 +21,18 @@
+@@ -14,6 +14,7 @@
+ #include <micrel.h>
+ #include <miiphy.h>
+ #include <asm/io.h>
++#include <stdio.h>
+ #include <nand.h>
+ #include <i2c.h>
+ #include <spi.h>
+@@ -21,8 +22,21 @@
  #include <enclustra_qspi.h>
  #include <enclustra/eeprom-mac.h>
  #include <asm/arch/ps7_init_gpl.h>
--
 +#include <asm/io.h>
 +#include <asm/gpio.h>
 +#include <config.h>
++#include "grlib.h"
++#include "kentec.h"
+ 
  DECLARE_GLOBAL_DATA_PTR;
 +#define CONFIG_SYS_GPIO_0_ADDR                              (0xE000A000)
 +/* GPIO Bank 0 */
@@ -22,7 +32,7 @@ index e7fcf88..87dde67 100644
  
  #if (defined(CONFIG_FPGA) && !defined(CONFIG_SPL_BUILD)) || \
      (defined(CONFIG_SPL_FPGA_SUPPORT) && defined(CONFIG_SPL_BUILD))
-@@ -213,8 +223,31 @@ static char *zx_get_idcode_name(void)
+@@ -213,8 +227,30 @@ static char *zx_get_idcode_name(void)
  }
  #endif
  
@@ -47,31 +57,58 @@ index e7fcf88..87dde67 100644
 +
 +
 +
-+
  int board_init(void)
  {
 +	printf("Swiss timing u-boot 2019\n");
  #if defined(CONFIG_ENV_IS_IN_EEPROM) && !defined(CONFIG_SPL_BUILD)
  	unsigned char eepromsel = CONFIG_SYS_I2C_MUX_EEPROM_SEL;
  #endif
-@@ -379,6 +412,11 @@ int board_late_init(void)
+@@ -363,6 +399,35 @@ int board_late_init(void)
  #endif
  #endif
  
 +
 +	//todo enable PHY 
 +	
-+		free_phy_reset();
++	/*free_phy_reset();
++	
++	// Read FPGA register
++	volatile uint32_t * fpga = 0x40000000;
++	uint32_t reg = *fpga; //read
++	printf("FPGA version: 0x%08x \n",reg);*/
++	
++// LCD Init
++	SSD2119_Init();
++	Graphics_Context context;
++	
++	GrContextInit(&context, &g_sKentec320x240x16_SSD2119);
++	g_sKentec320x240x16_SSD2119.displayData =  malloc(2*240*320);
++	Graphics_Rectangle graphicsRectangle = {
++			.xMin = 0,
++			.xMax = 320,
++			.yMin = 0,
++			.yMax = 30
++	};
++
++	GrContextForegroundSet(&context, ClrBlack);
++	Graphics_fillRectangle(&context, &graphicsRectangle);
++	Graphics_flushBuffer(&context);
++	//Graphics_drawImage(&context, &swt4BPP_UNCOMP, 0 ,0);
++	//Graphics_flushBuffer(&context);
 +
  	return 0;
  }
  
-@@ -438,6 +476,8 @@ int board_phy_config(struct phy_device *phydev)
+@@ -422,6 +487,12 @@ int board_phy_config(struct phy_device *phydev)
  				   MII_KSZ9031_EXT_RGMII_CLOCK_SKEW,
  				   MII_KSZ9031_MOD_DATA_NO_POST_INC,
  				   ENCLUSTRA_ZX_CLK_SKEW_VAL);
 +	puts("SWT : Disable PHY on Zynq Modules\n");	
 +	phy_write(phydev, MDIO_DEVAD_NONE, 0x0, 0x1940);
++
++
++
++
  
  	phydev->drv->config(phydev);
  
