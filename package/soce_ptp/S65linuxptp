@@ -12,7 +12,7 @@ start() {
 	start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \
 		-x /usr/sbin/ptp4l -- -p /dev/ptp0 -f /etc/linuxptp.cfg
 	#will use the system time at startup	
-	phc_ctl /dev/ptp0 set 
+	#phc_ctl /dev/ptp0 set 
 	#other possibility
 	#/usr/sbin/phc2sys -a -r -r -l 5 -F 0.001 -S 0.001 
 	#start-stop-daemon -S -b -q -p /var/run/linuxptp-ptp4l.pid \

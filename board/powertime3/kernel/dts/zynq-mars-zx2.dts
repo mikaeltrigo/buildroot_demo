@@ -19,14 +19,14 @@
 / {
 	model = "Enclustra Mars ZX2 SOM";
 
-	ptb_1588_0: ptb_1588@43c10000 {
+	ptb_1588_0: ptb_1588@40008000 {
 			clock-names = "s_axi_aclk";
 			clocks = <&clkc 15>;
 			compatible = "xlnx,ptb-1588-18.11";
 			interrupt-names = "ptp_interrupt";
 			interrupt-parent = <&intc>;
 			interrupts = <0 29 4>;
-			reg = <0x43c10000 0x10000>;
+			reg = <0x40008000 0x8000>;
 			xlnx,edge-type-event-0 = <0x1>;
 			xlnx,edge-type-event-1 = <0x1>;
 			xlnx,edge-type-event-2 = <0x1>;
@@ -40,8 +40,8 @@
 			xlnx,num-alarms = <0x1>;
 			xlnx,num-event-timestamping = <0x1>;
 			xlnx,passthrough-mode = "false";
-			xlnx,pulse-width = <0x5f5e100>;
-			xlnx,system-freq = <0x7735940>;
+			xlnx,pulse-width = <0xbebc200>;
+			xlnx,system-freq = <0x5f5e100>;
 			xlnx,timer-internal = <0x1>;
 			xlnx,use-pps-out = "true";
 			xlnx,use-timer-out = "false";
@@ -161,7 +161,7 @@
 	};
 	range1@40000000{
 		name="range1";
-		reg = <0x40000000 0x10000>;
+		reg = <0x40000000 0x08000>;
 		compatible="generic-uio";
 		status="okay";
 	};

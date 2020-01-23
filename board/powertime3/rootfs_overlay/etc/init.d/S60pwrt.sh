@@ -17,7 +17,9 @@ start_lua_script()
 
 case $1 in
 start)
-    	start_lua_script $ECS $ECS_PID $ECS_OPTS
+	printf "force speed to 100 Mbps "	
+	ethtool -s eth1 speed speed 100 duplex full  autoneg on    	
+	start_lua_script $ECS $ECS_PID $ECS_OPTS
     	;;
 
 stop)
