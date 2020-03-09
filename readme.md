@@ -53,12 +53,12 @@ make
 
 ## Create-SD-card
 
-I have created a script that is found in buildroot_swisstiming/board/powertime3/install-sd.sh.
+A script is available in buildroot_swisstiming/board/powertime3/install-sd.sh.
 
 After an initial build, you have to copy it to the images folder (only need to do it once, or after you do a make clean)
 
 ```
-cd buildroot_swisstiming
+cd build
 cp ../board/powertime3/install-sd.sh images/
 ```
 
