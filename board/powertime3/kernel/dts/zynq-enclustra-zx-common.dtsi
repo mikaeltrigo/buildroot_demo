@@ -74,7 +74,7 @@
 	status = "okay";
 	/* Both RTCs disabled by default, choose one */
 	pcf85063: pcf85063@51 {
-		status = "okay";
+		status = "disabled";
 		compatible = "nxp,pcf85063";
 		reg = <0x51>;
 	};
@@ -87,14 +87,9 @@
 
 &i2c1 {
 	status = "okay";
-	batterycharger: batterycharger@64 {
+	rv3028: rv3028@52 {
 		status = "okay";
-		compatible = "at,24c64";
-		reg = <0x64>;
-	};
-	rv3029: rv3029@68 {
-		status = "disable";
-		compatible = "microcrystal,rv3029";
+		compatible = "microcrystal,rv3028";
 		reg = <0x52>;
 	};
 };

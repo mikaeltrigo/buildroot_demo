@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-PWRT3_LUA_VERSION = 06f8a43a58d11b7db85554cb773a4c2494ca3bb3
+PWRT3_LUA_VERSION = ed37be650ef7ff2e0cf496e3fdb2fc7618d802c4
 PWRT3_LUA_SITE_METHOD = git
 PWRT3_LUA_SITE = https://github.com/mikaeltrigo/pwrt3_lua.git
 PWRT3_LUA_INSTALL_TARGET = YES

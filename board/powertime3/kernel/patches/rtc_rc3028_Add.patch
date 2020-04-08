@@ -1,5 +1,5 @@
 diff --git a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
-index e0e58f3..13b4889 100644
+index e0e58f3b1420..a726cf5c277b 100644
 --- a/drivers/rtc/Kconfig
 +++ b/drivers/rtc/Kconfig
 @@ -611,6 +611,15 @@ config RTC_DRV_EM3027
@@ -18,24 +18,32 @@ index e0e58f3..13b4889 100644
  config RTC_DRV_RV8803
  	tristate "Micro Crystal RV8803, Epson RX8900"
  	help
+@@ -1134,6 +1143,7 @@ config RTC_DRV_BQ4802
+ 	  This driver can also be built as a module. If so, the module
+ 	  will be called rtc-bq4802.
+ 
++
+ config RTC_DRV_RP5C01
+ 	tristate "Ricoh RP5C01"
+ 	depends on HAS_IOMEM
 diff --git a/drivers/rtc/Makefile b/drivers/rtc/Makefile
-index 0bf1fc0..9faa647 100644
+index 0bf1fc02b82c..be039ac9aa9d 100644
 --- a/drivers/rtc/Makefile
 +++ b/drivers/rtc/Makefile
-@@ -133,6 +133,7 @@ obj-$(CONFIG_RTC_DRV_RS5C313)	+= rtc-rs5c313.o
- obj-$(CONFIG_RTC_DRV_RS5C348)	+= rtc-rs5c348.o
- obj-$(CONFIG_RTC_DRV_RS5C372)	+= rtc-rs5c372.o
- obj-$(CONFIG_RTC_DRV_RTD119X)	+= rtc-rtd119x.o
+@@ -41,6 +41,7 @@ obj-$(CONFIG_RTC_DRV_BFIN)	+= rtc-bfin.o
+ obj-$(CONFIG_RTC_DRV_BRCMSTB)	+= rtc-brcmstb-waketimer.o
+ obj-$(CONFIG_RTC_DRV_BQ32K)	+= rtc-bq32k.o
+ obj-$(CONFIG_RTC_DRV_BQ4802)	+= rtc-bq4802.o
 +obj-$(CONFIG_RTC_DRV_RV3028)	+= rtc-rv3028.o
- obj-$(CONFIG_RTC_DRV_RV3029C2)	+= rtc-rv3029c2.o
- obj-$(CONFIG_RTC_DRV_RV8803)	+= rtc-rv8803.o
- obj-$(CONFIG_RTC_DRV_RX4581)	+= rtc-rx4581.o
+ obj-$(CONFIG_RTC_DRV_CMOS)	+= rtc-cmos.o
+ obj-$(CONFIG_RTC_DRV_COH901331)	+= rtc-coh901331.o
+ obj-$(CONFIG_RTC_DRV_CPCAP)	+= rtc-cpcap.o
 diff --git a/drivers/rtc/rtc-rv3028.c b/drivers/rtc/rtc-rv3028.c
 new file mode 100644
-index 0000000..6b7b3a6
+index 000000000000..f4a87d9f3a20
 --- /dev/null
 +++ b/drivers/rtc/rtc-rv3028.c
-@@ -0,0 +1,877 @@
+@@ -0,0 +1,868 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * RTC driver for the Micro Crystal RV3028
@@ -125,9 +133,11 @@ index 0000000..6b7b3a6
 +};
 +
 +struct rv3028_data {
++	struct device		*dev;
 +	struct regmap *regmap;
 +	struct rtc_device *rtc;
 +	enum rv3028_type type;
++	int irq;
 +#ifdef CONFIG_COMMON_CLK
 +	struct clk_hw clkout_hw;
 +#endif
@@ -267,8 +277,8 @@ index 0000000..6b7b3a6
 +		return ret;
 +
 +	if (status & RV3028_STATUS_PORF) {
-+		dev_warn(dev, "Voltage low, data is invalid.\n");
-+		return -EINVAL;
++		//dev_warn(dev, "Voltage low, data is invalid.\n");
++		//return -EINVAL;
 +	}
 +
 +	ret = regmap_bulk_read(rv3028->regmap, RV3028_SEC, date, sizeof(date));
@@ -770,88 +780,41 @@ index 0000000..6b7b3a6
 +	.ioctl = rv3028_ioctl,
 +};
 +
++
 +static const struct regmap_config regmap_config = {
 +        .reg_bits = 8,
 +        .val_bits = 8,
 +        .max_register = 0x37,
 +};
-+
++/*
 +static int rv3028_probe(struct i2c_client *client)
 +{
 +	struct rv3028_data *rv3028;
++	return 0;
++};
++
++*/
++static int rv3028_probe(struct device *dev, struct regmap *regmap, int irq,
++			const char *name)
++{
++	struct rv3028_data *rv3028;
++	int rc = 0;
 +	int ret, status;
 +	u32 ohms;
-+	struct nvmem_config nvmem_cfg = {
-+		.name = "rv3028_nvram",
-+		.word_size = 1,
-+		.stride = 1,
-+		.size = 2,
-+		.type = NVMEM_TYPE_BATTERY_BACKED,
-+		.reg_read = rv3028_nvram_read,
-+		.reg_write = rv3028_nvram_write,
-+	};
-+	struct nvmem_config eeprom_cfg = {
-+		.name = "rv3028_eeprom",
-+		.word_size = 1,
-+		.stride = 1,
-+		.size = 43,
-+		.type = NVMEM_TYPE_EEPROM,
-+		.reg_read = rv3028_eeprom_read,
-+		.reg_write = rv3028_eeprom_write,
-+	};
++	u8 buf[1];
 +
-+	rv3028 = devm_kzalloc(&client->dev, sizeof(struct rv3028_data),
-+			      GFP_KERNEL);
++	rv3028 = devm_kzalloc(dev, sizeof(*rv3028), GFP_KERNEL);
 +	if (!rv3028)
 +		return -ENOMEM;
 +
-+	rv3028->regmap = devm_regmap_init_i2c(client, &regmap_config);
++	rv3028->regmap = regmap;
++	rv3028->irq = irq;
++	rv3028->dev = dev;
++	dev_set_drvdata(dev, rv3028);
 +
-+	i2c_set_clientdata(client, rv3028);
-+
-+	ret = regmap_read(rv3028->regmap, RV3028_STATUS, &status);
-+	if (ret < 0)
-+		return ret;
-+
-+	if (status & RV3028_STATUS_PORF)
-+		dev_warn(&client->dev, "Voltage low, data loss detected.\n");
-+
-+	if (status & RV3028_STATUS_AF)
-+		dev_warn(&client->dev, "An alarm may have been missed.\n");
-+
-+	rv3028->rtc = devm_rtc_allocate_device(&client->dev);
-+	if (IS_ERR(rv3028->rtc))
-+		return PTR_ERR(rv3028->rtc);
-+
-+	if (client->irq > 0) {
-+		ret = devm_request_threaded_irq(&client->dev, client->irq,
-+						NULL, rv3028_handle_irq,
-+						IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-+						"rv3028", rv3028);
-+		if (ret) {
-+			dev_warn(&client->dev, "unable to request IRQ, alarms disabled\n");
-+			client->irq = 0;
-+		} else {
-+			rv3028_rtc_ops.read_alarm = rv3028_get_alarm;
-+			rv3028_rtc_ops.set_alarm = rv3028_set_alarm;
-+			rv3028_rtc_ops.alarm_irq_enable = rv3028_alarm_irq_enable;
-+		}
-+	}
-+
-+	ret = regmap_update_bits(rv3028->regmap, RV3028_CTRL1,
-+				 RV3028_CTRL1_WADA, RV3028_CTRL1_WADA);
-+	if (ret)
-+		return ret;
-+
-+	/* setup timestamping */
-+	ret = regmap_update_bits(rv3028->regmap, RV3028_CTRL2,
-+				 RV3028_CTRL2_EIE | RV3028_CTRL2_TSE,
-+				 RV3028_CTRL2_EIE | RV3028_CTRL2_TSE);
-+	if (ret)
-+		return ret;
 +
 +	/* setup trickle charger */
-+	if (!device_property_read_u32(&client->dev, "trickle-resistor-ohms",
++	if (!device_property_read_u32(rv3028->dev, "trickle-resistor-ohms",
 +				      &ohms)) {
 +		int i;
 +
@@ -867,38 +830,71 @@ index 0000000..6b7b3a6
 +			if (ret)
 +				return ret;
 +		} else {
-+			dev_warn(&client->dev, "invalid trickle resistor value\n");
++			dev_warn(rv3028->dev, "invalid trickle resistor value\n");
++		}
++	}
++	
++
++	rv3028->rtc = devm_rtc_device_register(dev, name, &rv3028_rtc_ops,
++					       THIS_MODULE);
++	if (IS_ERR(rv3028->rtc)) {
++		dev_err(dev, "unable to register the class device\n");
++		return PTR_ERR(rv3028->rtc);
++	}
++
++	if (rv3028->irq > 0) {
++		ret = devm_request_threaded_irq(rv3028->dev, rv3028->irq,
++						NULL, rv3028_handle_irq,
++						IRQF_TRIGGER_LOW | IRQF_ONESHOT,
++						"rv3028", rv3028);
++		if (ret) {
++			dev_warn(rv3028->dev, "unable to request IRQ, alarms disabled\n");
++			rv3028->irq = 0;
++		} else {
++			rv3028_rtc_ops.read_alarm = rv3028_get_alarm;
++			rv3028_rtc_ops.set_alarm = rv3028_set_alarm;
++			rv3028_rtc_ops.alarm_irq_enable = rv3028_alarm_irq_enable;
 +		}
 +	}
 +
-+	ret = rtc_add_group(rv3028->rtc, &rv3028_attr_group);
-+	if (ret)
-+		return ret;
-+
-+	rv3028->rtc->range_min = RTC_TIMESTAMP_BEGIN_2000;
-+	rv3028->rtc->range_max = RTC_TIMESTAMP_END_2099;
-+	rv3028->rtc->ops = &rv3028_rtc_ops;
-+	ret = rtc_register_device(rv3028->rtc);
-+	if (ret)
-+		return ret;
-+
-+	nvmem_cfg.priv = rv3028->regmap;
-+	rtc_nvmem_register(rv3028->rtc, &nvmem_cfg);
-+	eeprom_cfg.priv = rv3028->regmap;
-+	rtc_nvmem_register(rv3028->rtc, &eeprom_cfg);
-+
-+	rv3028->rtc->max_user_freq = 1;
-+
-+#ifdef CONFIG_COMMON_CLK
-+	rv3028_clkout_register_clk(rv3028, client);
-+#endif
 +	return 0;
++}
++
++
++static int rv3028_i2c_probe(struct i2c_client *client,
++			    const struct i2c_device_id *id)
++{
++	struct regmap *regmap;
++	static const struct regmap_config config = {
++		.reg_bits = 8,
++		.val_bits = 8,
++	};
++
++	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_I2C_BLOCK |
++				     I2C_FUNC_SMBUS_BYTE)) {
++		dev_err(&client->dev, "Adapter does not support SMBUS_I2C_BLOCK or SMBUS_I2C_BYTE\n");
++		return -ENODEV;
++	}
++
++	regmap = devm_regmap_init_i2c(client, &config);
++	if (IS_ERR(regmap)) {
++		dev_err(&client->dev, "%s: regmap allocation failed: %ld\n",
++			__func__, PTR_ERR(regmap));
++		return PTR_ERR(regmap);
++	}
++
++	return rv3028_probe(&client->dev, regmap, client->irq, client->name);
 +}
 +
 +static const struct of_device_id rv3028_of_match[] = {
 +	{ .compatible = "microcrystal,rv3028", },
 +	{ }
 +};
++static const struct i2c_device_id rv3028_id[] = {
++	{ "rv3028", 0 },
++	{ }
++};
++
 +MODULE_DEVICE_TABLE(of, rv3028_of_match);
 +
 +static struct i2c_driver rv3028_driver = {
@@ -906,8 +902,11 @@ index 0000000..6b7b3a6
 +		.name = "rtc-rv3028",
 +		.of_match_table = of_match_ptr(rv3028_of_match),
 +	},
-+	.probe_new	= rv3028_probe,
++	.probe		= rv3028_i2c_probe,
++	.id_table	= rv3028_id,	
 +};
++
++
 +module_i2c_driver(rv3028_driver);
 +
 +MODULE_AUTHOR("Alexandre Belloni <alexandre.belloni@bootlin.com>");

@@ -1,0 +1,52 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:                     fpga
+# Required-Start:   gpio-init
+# Required-Stop:
+# Default-Start:                S
+# Default-Stop:
+# Short-Description:            loads the fpga image
+### END INIT INFO
+
+PATH_TO_FPGA_IMAGE="/etc/fpga/fpga.bin"
+
+case "$1" in
+        start)
+                if [ ! -e $PATH_TO_FPGA_IMAGE  ]
+                then
+                  echo "No FPGA image available"
+                  exit 0 
+                fi
+
+                echo "FPGA loading ..."
+
+                # Create device node for update driver
+                if [ ! -e /dev/xdevcfg ]
+                then
+                  mknod /dev/xdevcfg c 259 0
+                fi
+
+                #Dump BitStream to FPGA
+                cat $PATH_TO_FPGA_IMAGE > /dev/xdevcfg
+
+                echo "FPGA loaded"
+
+                ;;
+
+        stop)
+        echo "Not available..."
+                ;;
+        restart)
+                # unload the driver
+                $0 stop
+
+                #reload the FPGA bin and the driver
+                $0 start
+
+                ;;
+        *)
+        #no other function supported
+esac
+
+exit 0
