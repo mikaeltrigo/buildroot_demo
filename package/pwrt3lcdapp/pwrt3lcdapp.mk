@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-PWRT3LCDAPP_VERSION = 1.7
+PWRT3LCDAPP_VERSION = 2.01
 PWRT3LCDAPP_SITE_METHOD = git
 PWRT3LCDAPP_SITE = 	https://github.com/mikaeltrigo/pwrt3_lcd_app.git
 
