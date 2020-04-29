@@ -12,6 +12,40 @@
 	5f.  [Update-Overlay](###Update-Overlay)
 
 
+## quick help
+
+First averything you do below you must always finish by doing
+make
+
+#linux
+if you change something in menuconfig linux (/buildroot_swisstiming/build/build/linux-custom/)--> add the new config in buildroot_swisstiming/board/powertime3/kernel/config  
+make linux-rebuild
+ATTENTION : if you change or add a patch (buildroot_swisstiming/board/powertime3/kernel/patch)
+make linux-dirclean
+make linux
+if you change the dts  buildroot_swisstiming/board/powertime3/kernel/dts  
+
+#buildroot
+if you change something in menuconfig buildroot (/buildroot_swisstiming/build/) and want to keep it 
+make savedefconfig ( this will update buildroot_swisstiming/configs/powertime3_defconfig , which need to be push to git after
+make 
+
+#package
+if you want to update a packages , go to (/buildroot_swisstiming/package/) update the mk file and then for exemple
+make pwrt3lcdapp-rebuild
+make quantum-rebuild
+make pwrt3_lua-rebuild
+if you want to clean first
+make pwrt3lcdapp-dirclean
+make pwrt3lcdapp
+
+#fpga
+update buildroot_swisstiming/board/powertime3/pre-built/fpga.bit
+make
+
+
+
+
 ## Introduction
 
 This document describes how to use this repository to build a minimal Linux system for the powertime with Buildroot
