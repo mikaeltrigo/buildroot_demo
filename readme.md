@@ -43,6 +43,17 @@ make pwrt3lcdapp
 update buildroot_swisstiming/board/powertime3/pre-built/fpga.bit
 make
 
+#overwrite a package output 
+We came to the case that we cannot read the GIT tag when building a package (for example make quantum) because it does a git export and not git clone)
+We need to overwrite sometimes the output of what was created in build/build/yourpackage. The makefiles actually copy the output to buildroot_swisstiming/build/target
+So for exemple I did the following for quantum and pwrt3lcdapp (from build)
+buildroot_swisstiming
+cp ../../app/Quantum/Quantum target/usr/bin/Quantum
+cp ../../app/pwrt3_lcd_app/pwrt3lcdapp target/usr/bin/pwrt3lcdapp 
+make
+
+
+and it works. Attention as asson as you do a make quantum or make pwrt3lcdapp, it will overwrite what you just copy
 
 
 
