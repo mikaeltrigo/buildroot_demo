@@ -96,6 +96,13 @@ make -C ../buildroot O=$(pwd) BR2_EXTERNAL=.. powertime3_defconfig
 make
 ```
 
+
+## Create-image for SD card windows
+
+sudo modprobe loop
+sudo ./create-sd-image-base.sh boot.bin rootfs.tar linuxbase.img
+
+
 ## Create-SD-card
 
 A script is available in buildroot_swisstiming/board/powertime3/install-sd.sh.
