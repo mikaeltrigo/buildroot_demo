@@ -10,7 +10,7 @@ ROOTFS_MNT="/mnt/root"
 BOOT_MNT="/mnt/boot"
 
 # Default Linux RootFS image name
-IMAGE_NAME="./rootfs.tar"
+IMAGE_NAME="./rootfs.tar.bz2"
 
 # Default output image name
 SDIMAGE_NAME="linux.sdimg"
