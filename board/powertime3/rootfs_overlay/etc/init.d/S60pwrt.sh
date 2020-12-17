@@ -18,7 +18,9 @@ start_lua_script()
 case $1 in
 start)
 	printf "force speed to 100 Mbps "	
-	ethtool -s eth1 speed 100 duplex full  autoneg on    	
+	ethtool -s eth1 speed 100 duplex full  autoneg on  
+	#printf "set speed cpu t0 333334 Hz "
+	#echo 333334  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed 	
 	start_lua_script $ECS $ECS_PID $ECS_OPTS
     	;;
 
